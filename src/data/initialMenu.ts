@@ -1,10 +1,16 @@
 import { MenuItem, CafeSettings } from '../types';
 
-export const BROASTED_IMAGE = '/src/assets/images/crispy_broasted_chicken_1790574522659.jpg';
-export const BURGER_IMAGE = '/src/assets/images/gourmet_smash_burger_1790574537123.jpg';
-export const TEA_IMAGE = '/src/assets/images/karak_chai_tea_1790574551408.jpg';
-export const JUICE_IMAGE = '/src/assets/images/fresh_cafe_juices_1790574562697.jpg';
-
+export const BROASTED_IMAGE = '/images/crispy_broasted_chicken_1790574522659.jpg';
+export const BURGER_IMAGE = '/images/gourmet_smash_burger_1790574537123.jpg';
+export const TEA_IMAGE = '/images/karak_chai_tea_1790574551408.jpg';
+export const JUICE_IMAGE = '/images/fresh_cafe_juices_1790574562697.jpg';
+export const LOADED_FRIES_IMAGE = '/images/vecteezy_delicious-loaded-french-fries-with-melted-cheese-and-sauce_53565580.jpg';
+export const PERI_FRIES_IMAGE = '/images/peri_peri_fries.jpg';
+export const GARLIC_DIP_IMAGE = '/images/garlic_toum_dip.jpg';
+export const ONION_RINGS_IMAGE = '/images/onion_rings.jpg';
+export const WAFFLE_IMAGE = '/images/nutella_waffle.jpg';
+export const SHAKE_IMAGE = '/images/biscoff_shake.jpg';
+export const BROWNIE_IMAGE = '/images/brownie_gelato.jpg';
 export const INITIAL_CAFE_SETTINGS: CafeSettings = {
   cafeName: 'Crunch & Brew Cafe',
   tagline: 'Artisanal Burgers · Broasted Chicken · Karak & Fresh Juices',
@@ -13,7 +19,7 @@ export const INITIAL_CAFE_SETTINGS: CafeSettings = {
   gstin: '27AABCU9603R1ZM',
   upiId: 'crunchbrew@upi',
   taxPercent: 5.0,
-  currencySymbol: '$',
+  currencySymbol: '₹',
   enableSound: true,
   receiptFooterMessage: 'Thank you for visiting Crunch & Brew! Have a flavorful day!',
 };
@@ -340,6 +346,7 @@ export const INITIAL_MENU_ITEMS: MenuItem[] = [
     id: 's1',
     name: 'Loaded Cheesy Jalapeno Fries',
     category: 'sides',
+    image: LOADED_FRIES_IMAGE,
     price: 4.99,
     description: 'Golden skin-on fries smothered in hot aged cheddar cheese sauce, pickled jalapeno coins and crispy fried onions.',
     isVeg: true,
@@ -349,6 +356,7 @@ export const INITIAL_MENU_ITEMS: MenuItem[] = [
     id: 's2',
     name: 'Crispy Peri-Peri Fries',
     category: 'sides',
+    image: PERI_FRIES_IMAGE,
     price: 3.49,
     description: 'Crunchy golden potato fries tossed in our signature smoky African peri-peri seasoning dust.',
     isVeg: true,
@@ -359,6 +367,7 @@ export const INITIAL_MENU_ITEMS: MenuItem[] = [
     id: 's3',
     name: 'Authentic Garlic Toum Dip (2 oz)',
     category: 'sides',
+    image: GARLIC_DIP_IMAGE,
     price: 1.19,
     description: 'Traditional Lebanese-style whipped garlic emulsion. Creamy, tangy, and perfect with broasted chicken.',
     isVeg: true,
@@ -368,6 +377,7 @@ export const INITIAL_MENU_ITEMS: MenuItem[] = [
     id: 's4',
     name: 'Crunchy Golden Onion Rings',
     category: 'sides',
+    image: ONION_RINGS_IMAGE,
     price: 4.29,
     description: 'Thick-cut sweet white onions in seasoned beer batter fried to crunchy perfection with chipotle mayo.',
     isVeg: true,
@@ -379,6 +389,7 @@ export const INITIAL_MENU_ITEMS: MenuItem[] = [
     id: 'd1',
     name: 'Warm Belgian Nutella Waffle',
     category: 'desserts',
+    image: WAFFLE_IMAGE,
     price: 5.99,
     description: 'Crispy pearl-sugar Belgian waffle drenched in warm Nutella hazelnut spread, banana slices, and crushed hazelnuts.',
     isVeg: true,
@@ -389,6 +400,7 @@ export const INITIAL_MENU_ITEMS: MenuItem[] = [
     id: 'd2',
     name: 'Lotus Biscoff Thick Shake',
     category: 'desserts',
+    image: SHAKE_IMAGE,
     price: 5.49,
     description: 'Creamy Madagascar vanilla gelato blended with genuine spiced Belgian speculoos spread and biscuit crumble.',
     isVeg: true,
@@ -398,6 +410,7 @@ export const INITIAL_MENU_ITEMS: MenuItem[] = [
     id: 'd3',
     name: 'Sizzling Hot Brownie with Vanilla Gelato',
     category: 'desserts',
+    image: BROWNIE_IMAGE,
     price: 6.29,
     description: 'Fudgy Belgian dark chocolate brownie warmed through, topped with a scoop of vanilla gelato and warm chocolate ganache.',
     isVeg: true,

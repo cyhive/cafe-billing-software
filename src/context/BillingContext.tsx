@@ -279,7 +279,11 @@ export const BillingProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [settings, setSettings] = useState<CafeSettings>(() => {
     try {
       const stored = localStorage.getItem(LOCAL_STORAGE_KEY_SETTINGS);
-      return stored ? { ...INITIAL_CAFE_SETTINGS, ...JSON.parse(stored) } : INITIAL_CAFE_SETTINGS;
+      if (!stored) return INITIAL_CAFE_SETTINGS;
+      const parsed = { ...INITIAL_CAFE_SETTINGS, ...JSON.parse(stored) };
+      // Settings saved before the switch to rupees still carry '$'
+      if (parsed.currencySymbol === '$') parsed.currencySymbol = INITIAL_CAFE_SETTINGS.currencySymbol;
+      return parsed;
     } catch {
       return INITIAL_CAFE_SETTINGS;
     }
@@ -294,7 +298,15 @@ export const BillingProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [menuItems, setMenuItems] = useState<MenuItem[]>(() => {
     try {
       const stored = localStorage.getItem(LOCAL_STORAGE_KEY_MENU);
-      return stored ? JSON.parse(stored) : INITIAL_MENU_ITEMS;
+      if (!stored) return INITIAL_MENU_ITEMS;
+      // Migrate image paths saved before images moved to /public,
+      // and fill in images for stored items that were saved without one
+      return (JSON.parse(stored) as MenuItem[]).map((item) => ({
+        ...item,
+        image:
+          item.image?.replace(/^\/src\/(assets|public)\/images\//, '/images/') ||
+          INITIAL_MENU_ITEMS.find((initial) => initial.id === item.id)?.image,
+      }));
     } catch {
       return INITIAL_MENU_ITEMS;
     }
