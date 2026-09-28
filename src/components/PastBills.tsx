@@ -65,7 +65,7 @@ export const PastBills: React.FC = () => {
   };
 
   return (
-    <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6">
+    <div className="w-full min-w-0 p-3 sm:p-6 max-w-7xl mx-auto space-y-6">
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-neutral-800">
         <div>
@@ -126,11 +126,11 @@ export const PastBills: React.FC = () => {
             <thead>
               <tr className="border-b border-neutral-800 bg-neutral-950/70 text-neutral-400 font-semibold uppercase tracking-wider text-[11px]">
                 <th className="py-3 px-4">Token & Bill #</th>
-                <th className="py-3 px-4">Date / Time</th>
-                <th className="py-3 px-4">Type / Table</th>
-                <th className="py-3 px-4">Customer</th>
-                <th className="py-3 px-4">Items Summary</th>
-                <th className="py-3 px-4">Payment</th>
+                <th className="hidden md:table-cell py-3 px-4">Date / Time</th>
+                <th className="hidden sm:table-cell py-3 px-4">Type / Table</th>
+                <th className="hidden lg:table-cell py-3 px-4">Customer</th>
+                <th className="hidden lg:table-cell py-3 px-4">Items Summary</th>
+                <th className="hidden sm:table-cell py-3 px-4">Payment</th>
                 <th className="py-3 px-4 text-right">Total</th>
                 <th className="py-3 px-4 text-center">Action</th>
               </tr>
@@ -154,16 +154,16 @@ export const PastBills: React.FC = () => {
                       </span>
                       <span className="text-neutral-500 ml-1.5">#{bill.orderNumber}</span>
                     </td>
-                    <td className="py-3 px-4 whitespace-nowrap text-neutral-400 font-sans">
+                    <td className="hidden md:table-cell py-3 px-4 whitespace-nowrap text-neutral-400 font-sans">
                       {formatDateTime(bill.createdAt)}
                     </td>
-                    <td className="py-3 px-4 whitespace-nowrap font-sans">
+                    <td className="hidden sm:table-cell py-3 px-4 whitespace-nowrap font-sans">
                       <span className="capitalize font-medium text-white">{bill.orderType}</span>
                       {bill.tableNumber && (
                         <span className="text-neutral-500 ml-1">({bill.tableNumber})</span>
                       )}
                     </td>
-                    <td className="py-3 px-4 whitespace-nowrap font-sans">
+                    <td className="hidden lg:table-cell py-3 px-4 whitespace-nowrap font-sans">
                       {bill.customerName ? (
                         <div>
                           <span className="text-white font-medium">{bill.customerName}</span>
@@ -177,10 +177,10 @@ export const PastBills: React.FC = () => {
                         <span className="text-neutral-600">—</span>
                       )}
                     </td>
-                    <td className="py-3 px-4 max-w-xs truncate font-sans text-neutral-300">
+                    <td className="hidden lg:table-cell py-3 px-4 max-w-xs truncate font-sans text-neutral-300">
                       {bill.items.map((i) => `${i.name} (x${i.quantity})`).join(', ')}
                     </td>
-                    <td className="py-3 px-4 whitespace-nowrap font-sans">
+                    <td className="hidden sm:table-cell py-3 px-4 whitespace-nowrap font-sans">
                       {getPaymentBadge(bill.paymentMethod)}
                     </td>
                     <td className="py-3 px-4 text-right whitespace-nowrap font-bold text-white text-sm tabular-nums">

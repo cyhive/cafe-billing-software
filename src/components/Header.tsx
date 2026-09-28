@@ -1,6 +1,6 @@
 import React from 'react';
 import { useBilling } from '../context/BillingContext';
-import { Volume2, VolumeX, Clock, PauseCircle, ShoppingBag } from 'lucide-react';
+import { Volume2, VolumeX, Clock, PauseCircle, ShoppingBag, Menu, X } from 'lucide-react';
 import { ActiveTab } from '../types';
 
 export const Header: React.FC = () => {
@@ -16,6 +16,20 @@ export const Header: React.FC = () => {
   } = useBilling();
 
   const [currentTime, setCurrentTime] = React.useState<string>('');
+  const [mobileNavOpen, setMobileNavOpen] = React.useState(false);
+
+  // Close the mobile menu on Escape
+  React.useEffect(() => {
+    if (!mobileNavOpen) return;
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setMobileNavOpen(false);
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [mobileNavOpen]);
+
+  const goToTab = (tab: ActiveTab) => {
+    setActiveTab(tab);
+    setMobileNavOpen(false);
+  };
 
   React.useEffect(() => {
     const update = () => {
@@ -38,31 +52,31 @@ export const Header: React.FC = () => {
   ];
 
   return (
-    <header className="flex items-center justify-between px-4 lg:px-6 py-3 border-b border-neutral-800 bg-neutral-900/90 backdrop-blur-md sticky top-0 z-40">
+    <header className="relative flex items-center justify-between gap-3 px-3 sm:px-4 lg:px-6 py-2.5 md:py-3 border-b border-neutral-800 bg-neutral-900/90 backdrop-blur-md sticky top-0 z-40">
       {/* Zone 1: Single text element wordmark */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 min-w-0">
         <button
-          onClick={() => setActiveTab('pos')}
-          className="text-lg md:text-xl font-bold tracking-tight text-white flex items-center gap-2 hover:opacity-90 transition-opacity"
+          onClick={() => goToTab('pos')}
+          className="text-base sm:text-lg md:text-xl font-bold tracking-tight text-white flex items-center gap-2 min-w-0 hover:opacity-90 transition-opacity"
         >
-          <span className="w-2.5 h-2.5 rounded-full bg-amber-500 inline-block"></span>
-          <span>{settings.cafeName}</span>
+          <span className="w-2.5 h-2.5 rounded-full bg-amber-500 inline-block shrink-0"></span>
+          <span className="truncate">{settings.cafeName}</span>
         </button>
-        <span className="hidden sm:inline-block text-xs font-mono text-neutral-500 tabular-nums border-l border-neutral-800 pl-3">
+        <span className="hidden lg:inline-block whitespace-nowrap text-xs font-mono text-neutral-500 tabular-nums border-l border-neutral-800 pl-3">
           <Clock className="w-3.5 h-3.5 inline mr-1 text-neutral-400" />
           {currentTime}
         </span>
       </div>
 
       {/* Zone 2: Navigation Links */}
-      <nav className="flex items-center gap-1 sm:gap-2">
+      <nav className="hidden md:flex items-center gap-1 lg:gap-2">
         {navLinks.map((item) => {
           const isActive = activeTab === item.id;
           return (
             <button
               key={item.id}
-              onClick={() => setActiveTab(item.id)}
-              className={`px-3 py-1.5 text-xs sm:text-sm font-medium transition-colors rounded-lg whitespace-nowrap ${
+              onClick={() => goToTab(item.id)}
+              className={`shrink-0 px-2.5 lg:px-3 py-1.5 text-xs lg:text-sm font-medium transition-colors rounded-lg whitespace-nowrap ${
                 isActive
                   ? 'bg-amber-500/15 text-amber-400 border border-amber-500/30'
                   : 'text-neutral-400 hover:text-white hover:bg-neutral-800'
@@ -75,7 +89,7 @@ export const Header: React.FC = () => {
       </nav>
 
       {/* Zone 3: Primary Actions */}
-      <div className="flex items-center gap-2 sm:gap-3">
+      <div className="flex items-center gap-2 sm:gap-3 shrink-0">
         {/* Held Orders Quick Access */}
         {heldOrders.length > 0 && (
           <button
@@ -115,7 +129,52 @@ export const Header: React.FC = () => {
             <span className="tabular-nums font-mono">{cart.reduce((a, b) => a + b.quantity, 0)}</span>
           </div>
         )}
+
+        {/* Mobile Menu Toggle */}
+        <button
+          onClick={() => setMobileNavOpen((open) => !open)}
+          className="md:hidden flex items-center gap-2 px-2.5 py-2 rounded-lg border border-neutral-800 text-neutral-200 hover:bg-neutral-800 transition-colors"
+          aria-label={mobileNavOpen ? 'Close menu' : 'Open menu'}
+          aria-expanded={mobileNavOpen}
+        >
+          <span className="hidden min-[400px]:inline text-xs font-medium text-amber-400">
+            {navLinks.find((l) => l.id === activeTab)?.label}
+          </span>
+          {mobileNavOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
+        </button>
       </div>
+
+      {/* Mobile Dropdown Menu */}
+      {mobileNavOpen && (
+        <>
+          <div
+            className="md:hidden absolute top-full left-0 right-0 h-screen bg-black/60"
+            onClick={() => setMobileNavOpen(false)}
+          />
+          <nav className="md:hidden absolute top-full left-0 right-0 bg-neutral-900 border-b border-neutral-800 shadow-2xl p-2 flex flex-col gap-1">
+            {navLinks.map((item) => {
+              const isActive = activeTab === item.id;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => goToTab(item.id)}
+                  className={`w-full text-left px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
+                    isActive
+                      ? 'bg-amber-500/15 text-amber-400 border border-amber-500/30'
+                      : 'text-neutral-300 hover:text-white hover:bg-neutral-800 border border-transparent'
+                  }`}
+                >
+                  {item.label}
+                </button>
+              );
+            })}
+            <div className="px-4 pt-2 pb-1 mt-1 border-t border-neutral-800 text-xs font-mono text-neutral-500 tabular-nums">
+              <Clock className="w-3.5 h-3.5 inline mr-1 text-neutral-400" />
+              {currentTime}
+            </div>
+          </nav>
+        </>
+      )}
     </header>
   );
 };

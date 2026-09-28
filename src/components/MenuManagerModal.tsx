@@ -83,7 +83,7 @@ export const MenuManagerModal: React.FC = () => {
   };
 
   return (
-    <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6">
+    <div className="w-full min-w-0 p-3 sm:p-6 max-w-7xl mx-auto space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-neutral-800">
         <div>
@@ -259,10 +259,10 @@ export const MenuManagerModal: React.FC = () => {
                 <thead>
                   <tr className="border-b border-neutral-800 bg-neutral-950 text-neutral-400 font-semibold uppercase tracking-wider text-[11px]">
                     <th className="py-3 px-4">Item Name</th>
-                    <th className="py-3 px-4">Category</th>
+                    <th className="hidden sm:table-cell py-3 px-4">Category</th>
                     <th className="py-3 px-4">Price</th>
-                    <th className="py-3 px-4 text-center">Stock Status</th>
-                    <th className="py-3 px-4 text-right">Quick Action</th>
+                    <th className="hidden md:table-cell py-3 px-4 text-center">Stock Status</th>
+                    <th className="py-3 px-4 text-right whitespace-nowrap">Quick Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-neutral-800/60 font-sans">
@@ -271,16 +271,16 @@ export const MenuManagerModal: React.FC = () => {
                       key={item.id}
                       className="hover:bg-neutral-850/50 transition-colors text-neutral-300"
                     >
-                      <td className="py-3 px-4">
+                      <td className="py-3 px-3 sm:px-4 min-w-[140px]">
                         <div className="font-semibold text-white">{item.name}</div>
-                        <div className="text-[10px] text-neutral-500 truncate max-w-sm">
+                        <div className="hidden sm:block text-[10px] text-neutral-500 truncate max-w-sm">
                           {item.description}
                         </div>
                       </td>
-                      <td className="py-3 px-4 capitalize text-neutral-400">
+                      <td className="hidden sm:table-cell py-3 px-4 capitalize text-neutral-400">
                         {item.category}
                       </td>
-                      <td className="py-3 px-4 font-mono font-bold text-white tabular-nums">
+                      <td className="py-3 px-3 sm:px-4 font-mono font-bold text-white tabular-nums whitespace-nowrap">
                         {editingPriceId === item.id ? (
                           <div className="flex items-center gap-1">
                             <span className="text-neutral-500">{settings.currencySymbol}</span>
@@ -318,7 +318,7 @@ export const MenuManagerModal: React.FC = () => {
                           </div>
                         )}
                       </td>
-                      <td className="py-3 px-4 text-center">
+                      <td className="hidden md:table-cell py-3 px-4 text-center">
                         <span
                           className={`inline-block px-2.5 py-1 rounded-full text-[10px] font-semibold tracking-wide uppercase ${
                             item.isAvailable
@@ -329,10 +329,10 @@ export const MenuManagerModal: React.FC = () => {
                           {item.isAvailable ? 'In Stock' : 'Sold Out'}
                         </span>
                       </td>
-                      <td className="py-3 px-4 text-right">
+                      <td className="py-3 px-3 sm:px-4 text-right">
                         <button
                           onClick={() => toggleItemAvailability(item.id)}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                          className={`whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
                             item.isAvailable
                               ? 'bg-neutral-800 hover:bg-rose-950 hover:text-rose-300 text-neutral-300 border border-neutral-700'
                               : 'bg-emerald-600 hover:bg-emerald-500 text-white'

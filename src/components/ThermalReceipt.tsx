@@ -42,8 +42,8 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({ bill, settings, 
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md print:p-0 print:bg-white print:static animate-in fade-in duration-200">
-      <div className="relative w-full max-w-sm flex flex-col items-center">
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-4 bg-black/85 backdrop-blur-md print:p-0 print:bg-white print:static animate-in fade-in duration-200">
+      <div className="relative w-full max-w-sm my-auto flex flex-col items-center">
         {/* Actions Bar (Hidden during print) */}
         <div className="w-full flex items-center justify-between mb-3 text-xs text-neutral-300 print:hidden">
           <div className="flex items-center gap-2">

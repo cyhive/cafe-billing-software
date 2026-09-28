@@ -1,6 +1,6 @@
 import React from 'react';
 import { ItemCategory } from '../types';
-import { Search, X, Flame, Coffee, Sparkles, Utensils } from 'lucide-react';
+import { Search, X, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface CategoryNavProps {
   selectedCategory: ItemCategory;
@@ -17,6 +17,72 @@ export const CategoryNav: React.FC<CategoryNavProps> = ({
   onSearchChange,
   counts,
 }) => {
+  const scrollRef = React.useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = React.useState(false);
+  const [canScrollRight, setCanScrollRight] = React.useState(false);
+
+  const updateScrollButtons = React.useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    setCanScrollLeft(el.scrollLeft > 4);
+    setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 4);
+  }, []);
+
+  // Track overflow on scroll and resize
+  React.useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    updateScrollButtons();
+    el.addEventListener('scroll', updateScrollButtons, { passive: true });
+    const observer = new ResizeObserver(updateScrollButtons);
+    observer.observe(el);
+    return () => {
+      el.removeEventListener('scroll', updateScrollButtons);
+      observer.disconnect();
+    };
+  }, [updateScrollButtons]);
+
+  // Let a mouse wheel scroll the tabs sideways
+  React.useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      if (Math.abs(e.deltaY) <= Math.abs(e.deltaX) || el.scrollWidth <= el.clientWidth) return;
+      e.preventDefault();
+      el.scrollBy({ left: e.deltaY });
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, []);
+
+  // Center the selected tab in the strip (without scrolling the page)
+  React.useEffect(() => {
+    const el = scrollRef.current;
+    const chip = el?.querySelector<HTMLElement>(`[data-category="${selectedCategory}"]`);
+    if (!el || !chip) return;
+    el.scrollTo({
+      left: chip.offsetLeft - (el.clientWidth - chip.offsetWidth) / 2,
+      behavior: 'smooth',
+    });
+  }, [selectedCategory]);
+
+  const scrollTabs = (direction: 1 | -1) => {
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollBy({ left: direction * el.clientWidth * 0.7, behavior: 'smooth' });
+  };
+
+  const hasOverflow = canScrollLeft || canScrollRight;
+
+  // Fade the edges of the strip only on the sides that have more tabs
+  const fadeMask = `linear-gradient(to right, ${canScrollLeft ? 'transparent, #000 24px' : '#000'}, ${
+    canScrollRight ? '#000 calc(100% - 24px), transparent' : '#000'
+  })`;
+
+  const arrowClass =
+    'shrink-0 w-8 h-8 rounded-full border flex items-center justify-center transition-colors disabled:opacity-30 disabled:cursor-default ' +
+    'bg-neutral-900 border-neutral-800 text-neutral-200 enabled:hover:bg-amber-500 enabled:hover:text-neutral-950 enabled:hover:border-amber-400';
+
   const categories: { id: ItemCategory; label: string; icon: string }[] = [
     { id: 'all', label: 'All Items', icon: '🍽️' },
     { id: 'burgers', label: 'Gourmet Burgers', icon: '🍔' },
@@ -58,15 +124,31 @@ export const CategoryNav: React.FC<CategoryNavProps> = ({
       </div>
 
       {/* Category Segmented Scrollable Tabs */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+      <div className="flex items-center gap-1.5">
+        {hasOverflow && (
+          <button
+            onClick={() => scrollTabs(-1)}
+            disabled={!canScrollLeft}
+            className={arrowClass}
+            aria-label="Scroll categories left"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+        )}
+        <div
+          ref={scrollRef}
+          className="relative flex-1 min-w-0 flex items-center gap-1.5 overflow-x-auto py-0.5 scrollbar-none"
+          style={{ maskImage: fadeMask, WebkitMaskImage: fadeMask }}
+        >
         {categories.map((cat) => {
           const isActive = selectedCategory === cat.id;
           const count = counts[cat.id] || 0;
           return (
             <button
               key={cat.id}
+              data-category={cat.id}
               onClick={() => onSelectCategory(cat.id)}
-              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all whitespace-nowrap border shrink-0 ${
+              className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all whitespace-nowrap border shrink-0 ${
                 isActive
                   ? 'bg-amber-500 text-neutral-950 border-amber-400 font-semibold shadow-sm shadow-amber-500/20'
                   : 'bg-neutral-900 text-neutral-300 border-neutral-800 hover:bg-neutral-850 hover:border-neutral-700'
@@ -86,6 +168,17 @@ export const CategoryNav: React.FC<CategoryNavProps> = ({
             </button>
           );
         })}
+        </div>
+        {hasOverflow && (
+          <button
+            onClick={() => scrollTabs(1)}
+            disabled={!canScrollRight}
+            className={arrowClass}
+            aria-label="Scroll categories right"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        )}
       </div>
     </div>
   );

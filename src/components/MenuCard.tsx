@@ -111,7 +111,7 @@ export const MenuCard: React.FC<MenuCardProps> = ({ item }) => {
         </div>
 
         {/* Content Details */}
-        <div className="p-3.5 space-y-1.5">
+        <div className="p-2.5 sm:p-3.5 space-y-1.5">
           <div className="flex items-center gap-2 text-[11px] text-neutral-400">
             <span className={`capitalize font-medium ${getCategoryColor()}`}>{item.category}</span>
             {item.customizationGroup && (
@@ -133,9 +133,9 @@ export const MenuCard: React.FC<MenuCardProps> = ({ item }) => {
       </div>
 
       {/* Bottom Footer: Price & Add Button */}
-      <div className="p-3.5 pt-0 flex items-center justify-between gap-2 border-t border-neutral-800/60 mt-2">
+      <div className="px-2.5 pb-2.5 sm:px-3.5 sm:pb-3.5 mt-2 flex items-center justify-between gap-2 border-t border-neutral-800/60">
         <div>
-          <span className="text-base font-bold text-white font-mono tabular-nums">
+          <span className="text-sm sm:text-base font-bold text-white font-mono tabular-nums">
             {formatCurrency(item.price, settings.currencySymbol)}
           </span>
         </div>
@@ -143,7 +143,7 @@ export const MenuCard: React.FC<MenuCardProps> = ({ item }) => {
         <button
           onClick={handleQuickAdd}
           disabled={!item.isAvailable}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+          className={`shrink-0 flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
             item.isAvailable
               ? item.customizationGroup
                 ? 'bg-neutral-800 hover:bg-neutral-700 text-amber-400 border border-neutral-700'
@@ -154,7 +154,7 @@ export const MenuCard: React.FC<MenuCardProps> = ({ item }) => {
           {item.customizationGroup ? (
             <>
               <SlidersHorizontal className="w-3.5 h-3.5" />
-              <span>Options</span>
+              <span className="hidden min-[400px]:inline">Options</span>
             </>
           ) : (
             <>

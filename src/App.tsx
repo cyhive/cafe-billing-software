@@ -73,7 +73,7 @@ const POSMainView: React.FC = () => {
   return (
     <div className="flex flex-col lg:flex-row flex-1 min-h-[calc(100vh-61px)]">
       {/* Left Menu Section */}
-      <div className="flex-1 p-3 sm:p-5 lg:p-6 overflow-y-auto space-y-4">
+      <div className="flex-1 min-w-0 p-3 sm:p-5 lg:p-6 overflow-y-auto space-y-4">
         {/* Category Navigation & Search */}
         <CategoryNav
           selectedCategory={selectedCategory}
@@ -92,7 +92,7 @@ const POSMainView: React.FC = () => {
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4 gap-3 sm:gap-4 pb-20 lg:pb-6">
+          <div className="grid grid-cols-2 md:grid-cols-3 2xl:grid-cols-4 gap-2.5 sm:gap-4 pb-24 lg:pb-6">
             {filteredItems.map((item) => (
               <MenuCard key={item.id} item={item} />
             ))}
@@ -179,7 +179,7 @@ const AppContent: React.FC = () => {
   const { activeTab, activeBillForReceipt, setActiveBillForReceipt, settings } = useBilling();
 
   return (
-    <div className="min-h-screen bg-neutral-950 text-neutral-100 flex flex-col font-sans">
+    <div className="min-h-screen bg-neutral-950 text-neutral-100 flex flex-col font-sans overflow-x-clip">
       <Header />
 
       <main className="flex-1 flex flex-col">
