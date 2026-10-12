@@ -18,7 +18,8 @@ import { PastBills } from './components/PastBills';
 import { SalesReports } from './components/SalesReports';
 import { MenuManagerModal } from './components/MenuManagerModal';
 import { ItemCategory } from './types';
-import { ShoppingBag, ArrowRight } from 'lucide-react';
+import { MENU_CATEGORIES } from './data/categories';
+import { ArrowRight, Loader2, RefreshCw } from 'lucide-react';
 
 const POSMainView: React.FC = () => {
   const {
@@ -40,15 +41,10 @@ const POSMainView: React.FC = () => {
 
   // Compute category counts
   const counts = useMemo(() => {
-    const res: Record<ItemCategory, number> = {
-      all: menuItems.length,
-      burgers: 0,
-      broasted: 0,
-      tea: 0,
-      juices: 0,
-      sides: 0,
-      desserts: 0,
-    };
+    const res = { all: menuItems.length } as Record<ItemCategory, number>;
+    MENU_CATEGORIES.forEach((cat) => {
+      res[cat.id] = 0;
+    });
     menuItems.forEach((item) => {
       if (res[item.category] !== undefined) {
         res[item.category]++;
@@ -175,8 +171,45 @@ const POSMainView: React.FC = () => {
   );
 };
 
+const LoadingScreen: React.FC = () => {
+  const { loadState, loadError, reloadData } = useBilling();
+
+  return (
+    <div className="flex-1 flex flex-col items-center justify-center gap-4 p-6 text-center">
+      <img src="/brand/logo-192.png" alt="NU Cafe" className="w-24 h-24 rounded-full" />
+      {loadState === 'loading' ? (
+        <div className="flex items-center gap-2 text-sm text-neutral-400">
+          <Loader2 className="w-4 h-4 animate-spin text-amber-400" />
+          <span>Loading menu…</span>
+        </div>
+      ) : (
+        <div className="space-y-3 max-w-sm">
+          <p className="text-sm font-semibold text-rose-300">Could not connect to the server</p>
+          <p className="text-xs text-neutral-500 break-words">{loadError}</p>
+          <button
+            onClick={reloadData}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold rounded-xl text-xs"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            <span>Try again</span>
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
+
 const AppContent: React.FC = () => {
-  const { activeTab, activeBillForReceipt, setActiveBillForReceipt, settings } = useBilling();
+  const { activeTab, activeBillForReceipt, setActiveBillForReceipt, settings, loadState } =
+    useBilling();
+
+  if (loadState !== 'ready') {
+    return (
+      <div className="min-h-screen bg-neutral-950 text-neutral-100 flex flex-col font-sans">
+        <LoadingScreen />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-neutral-950 text-neutral-100 flex flex-col font-sans overflow-x-clip">

@@ -42,7 +42,7 @@ export const KitchenDisplay: React.FC = () => {
           <div>
             <h1 className="text-lg font-bold text-white">Kitchen Display Screen (KDS)</h1>
             <p className="text-xs text-neutral-400">
-              Live burger grill, broasted fryer, chai brewer & juice station order queue
+              Live order queue for the kitchen and juice counter
             </p>
           </div>
         </div>

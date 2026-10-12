@@ -1,5 +1,6 @@
 import React from 'react';
 import { useBilling } from '../context/BillingContext';
+import { MENU_CATEGORIES } from '../data/categories';
 import { formatCurrency } from '../utils/format';
 import {
   TrendingUp,
@@ -18,14 +19,10 @@ export const SalesReports: React.FC = () => {
   const { bills, settings, todayStats } = useBilling();
 
   // Aggregate Category Breakdown
-  const categoryStats: Record<string, { count: number; revenue: number }> = {
-    burgers: { count: 0, revenue: 0 },
-    broasted: { count: 0, revenue: 0 },
-    tea: { count: 0, revenue: 0 },
-    juices: { count: 0, revenue: 0 },
-    sides: { count: 0, revenue: 0 },
-    desserts: { count: 0, revenue: 0 },
-  };
+  const categoryStats: Record<string, { count: number; revenue: number }> = {};
+  MENU_CATEGORIES.forEach((cat) => {
+    categoryStats[cat.id] = { count: 0, revenue: 0 };
+  });
 
   // Aggregate Top Selling Items
   const itemCounts: Record<string, { name: string; qty: number; revenue: number }> = {};
@@ -33,7 +30,7 @@ export const SalesReports: React.FC = () => {
   bills.forEach((bill) => {
     bill.items.forEach((item) => {
       // Category
-      const cat = item.category || 'sides';
+      const cat = item.category || 'other';
       if (!categoryStats[cat]) {
         categoryStats[cat] = { count: 0, revenue: 0 };
       }
@@ -95,20 +92,15 @@ export const SalesReports: React.FC = () => {
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `CrunchBrew_Sales_${new Date().toISOString().slice(0, 10)}.csv`);
+    link.setAttribute('download', `NU_Cafe_Sales_${new Date().toISOString().slice(0, 10)}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   };
 
-  const categoryLabels: Record<string, { label: string; icon: string; color: string }> = {
-    burgers: { label: 'Burgers', icon: '🍔', color: 'bg-amber-500' },
-    broasted: { label: 'Broasted Chicken', icon: '🍗', color: 'bg-orange-500' },
-    tea: { label: 'Tea & Chai', icon: '☕', color: 'bg-amber-600' },
-    juices: { label: 'Fresh Juices & Mojitos', icon: '🍹', color: 'bg-emerald-500' },
-    sides: { label: 'Sides & Fries', icon: '🍟', color: 'bg-yellow-500' },
-    desserts: { label: 'Desserts & Waffles', icon: '🧇', color: 'bg-purple-500' },
-  };
+  const categoryLabels: Record<string, { label: string; icon: string }> = Object.fromEntries(
+    MENU_CATEGORIES.map((cat) => [cat.id, { label: cat.label, icon: cat.icon }])
+  );
 
   return (
     <div className="w-full min-w-0 p-3 sm:p-6 max-w-7xl mx-auto space-y-6">
@@ -287,13 +279,9 @@ export const SalesReports: React.FC = () => {
           <span>Category-Wise Breakdown</span>
         </h3>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
           {Object.entries(categoryStats).map(([key, data]) => {
-            const config = categoryLabels[key] || {
-              label: key,
-              icon: '🍽️',
-              color: 'bg-neutral-500',
-            };
+            const config = categoryLabels[key] || { label: key, icon: '🍽️' };
             return (
               <div
                 key={key}

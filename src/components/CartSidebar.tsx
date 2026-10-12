@@ -50,6 +50,7 @@ export const CartSidebar: React.FC = () => {
     holdCurrentOrder,
     setIsPaymentModalOpen,
     settleOrder,
+    isSettling,
     settings,
   } = useBilling();
 
@@ -174,7 +175,7 @@ export const CartSidebar: React.FC = () => {
             </div>
             <p className="text-sm font-semibold text-neutral-400">Current Bill is Empty</p>
             <p className="text-xs text-neutral-500 mt-1 max-w-[220px]">
-              Tap any burger, broasted meal, karak chai, or juice to start billing.
+              Tap any tea, juice, shake or snack to start billing.
             </p>
           </div>
         ) : (
@@ -382,7 +383,7 @@ export const CartSidebar: React.FC = () => {
           {/* Quick Cash Button */}
           <button
             onClick={handleQuickCash}
-            disabled={cart.length === 0}
+            disabled={cart.length === 0 || isSettling}
             className="col-span-1 flex items-center justify-center gap-1.5 py-3 px-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold rounded-xl text-xs shadow-md shadow-emerald-950/40 active:scale-95 transition-all"
             title="Exact cash settlement"
           >
@@ -393,7 +394,7 @@ export const CartSidebar: React.FC = () => {
           {/* Settle & Pay Button (Opens Full Tender/UPI/Card Screen) */}
           <button
             onClick={() => setIsPaymentModalOpen(true)}
-            disabled={cart.length === 0}
+            disabled={cart.length === 0 || isSettling}
             className="col-span-2 flex items-center justify-center gap-2 py-3 px-4 bg-amber-500 hover:bg-amber-400 disabled:opacity-40 disabled:cursor-not-allowed text-neutral-950 font-bold rounded-xl text-sm shadow-md shadow-amber-500/25 active:scale-95 transition-all"
           >
             <Receipt className="w-4 h-4 stroke-[2.5]" />

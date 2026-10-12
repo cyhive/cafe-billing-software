@@ -1,13 +1,14 @@
 {
-  "name": "react-example",
+  "name": "nu-cafe-pos",
   "private": true,
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite --port=3000 --host=0.0.0.0",
+    "dev": "tsx watch --clear-screen=false server/index.ts",
     "build": "vite build",
-    "preview": "vite preview",
-    "clean": "rm -rf dist server.js",
+    "start": "tsx server/index.ts --prod",
+    "seed": "tsx server/seed.ts",
+    "clean": "rm -rf dist",
     "lint": "tsc --noEmit"
   },
   "dependencies": {
@@ -17,6 +18,7 @@
     "dotenv": "^17.2.3",
     "express": "^4.21.2",
     "lucide-react": "^0.546.0",
+    "mongodb": "^6.21.0",
     "motion": "^12.23.24",
     "react": "^19.0.1",
     "react-dom": "^19.0.1",

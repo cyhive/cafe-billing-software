@@ -1,7 +1,11 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useBilling } from '../context/BillingContext';
-import { MenuItem, ItemCategory } from '../types';
+import { MenuItem } from '../types';
+import { MENU_CATEGORIES, MenuCategoryId, getCategory } from '../data/categories';
 import { formatCurrency } from '../utils/format';
+import { formatQuantity, servingsAvailable } from '../data/rawMaterials';
+import { RawMaterialsPanel } from './RawMaterialsPanel';
+import { RecipeEditorModal } from './RecipeEditorModal';
 import {
   Utensils,
   Plus,
@@ -13,7 +17,22 @@ import {
   DollarSign,
   Store,
   Save,
+  Trash2,
+  Search,
+  FlaskConical,
 } from 'lucide-react';
+
+/** Shows how many servings the current raw-material stock can make. */
+const CanMakeLabel: React.FC<{ servings: number | null }> = ({ servings }) => {
+  if (servings === null) return null;
+  const color =
+    servings === 0 ? 'text-rose-400' : servings <= 5 ? 'text-amber-400' : 'text-emerald-400';
+  return (
+    <div className={`mt-0.5 text-[10px] font-semibold ${color}`}>
+      {servings === 0 ? 'Out of stock' : `Can make ${servings}`}
+    </div>
+  );
+};
 
 export const MenuManagerModal: React.FC = () => {
   const {
@@ -21,30 +40,72 @@ export const MenuManagerModal: React.FC = () => {
     toggleItemAvailability,
     updateMenuItem,
     addMenuItem,
+    deleteMenuItem,
     resetMenuToDefault,
     settings,
     updateSettings,
+    rawMaterials,
   } = useBilling();
 
-  const [activeSubTab, setActiveSubTab] = useState<'items' | 'settings'>('items');
+  const [activeSubTab, setActiveSubTab] = useState<'items' | 'materials' | 'settings'>('items');
+  const [recipeItem, setRecipeItem] = useState<MenuItem | null>(null);
+
+  const lowMaterialCount = rawMaterials.filter((m) => m.stock <= m.lowStockLevel).length;
+  const describeRecipe = (item: MenuItem) =>
+    (item.recipe ?? [])
+      .map((line) => {
+        const material = rawMaterials.find((m) => m.id === line.materialId);
+        return material ? `${material.name} ${formatQuantity(line.quantity, material.unit)}` : null;
+      })
+      .filter(Boolean)
+      .join(' · ');
   const [editingPriceId, setEditingPriceId] = useState<string | null>(null);
   const [tempPrice, setTempPrice] = useState<string>('');
 
   // New Item State
   const [isAddingNew, setIsAddingNew] = useState(false);
   const [newItemName, setNewItemName] = useState('');
-  const [newItemCategory, setNewItemCategory] = useState<ItemCategory>('burgers');
-  const [newItemPrice, setNewItemPrice] = useState('7.99');
+  const [newItemCategory, setNewItemCategory] = useState<MenuCategoryId>('tea');
+  const [newItemPrice, setNewItemPrice] = useState('');
+  const [isSavingItem, setIsSavingItem] = useState(false);
   const [newItemDesc, setNewItemDesc] = useState('');
   const [newItemVeg, setNewItemVeg] = useState(false);
   const [newItemSpicy, setNewItemSpicy] = useState(false);
 
+  // Search & filters for the items table
+  const [searchQuery, setSearchQuery] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState<MenuCategoryId | 'all'>('all');
+  const [stockFilter, setStockFilter] = useState<'all' | 'in' | 'out'>('all');
+
   // Settings State
   const [formSettings, setFormSettings] = useState(settings);
 
+  const filteredItems = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    return menuItems.filter((item) => {
+      if (categoryFilter !== 'all' && item.category !== categoryFilter) return false;
+      if (stockFilter === 'in' && !item.isAvailable) return false;
+      if (stockFilter === 'out' && item.isAvailable) return false;
+      if (!query) return true;
+      const categoryLabel = getCategory(item.category)?.label ?? '';
+      return [item.name, item.description, categoryLabel, String(item.price)].some((text) =>
+        text.toLowerCase().includes(query)
+      );
+    });
+  }, [menuItems, searchQuery, categoryFilter, stockFilter]);
+
+  const soldOutCount = menuItems.filter((item) => !item.isAvailable).length;
+  const hasFilters = searchQuery.trim() !== '' || categoryFilter !== 'all' || stockFilter !== 'all';
+
+  const clearFilters = () => {
+    setSearchQuery('');
+    setCategoryFilter('all');
+    setStockFilter('all');
+  };
+
   const handleStartPriceEdit = (item: MenuItem) => {
     setEditingPriceId(item.id);
-    setTempPrice(item.price.toFixed(2));
+    setTempPrice(String(item.price));
   };
 
   const handleSavePriceEdit = (item: MenuItem) => {
@@ -55,25 +116,42 @@ export const MenuManagerModal: React.FC = () => {
     setEditingPriceId(null);
   };
 
-  const handleCreateItem = (e: React.FormEvent) => {
+  const handleCreateItem = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newItemName.trim()) return;
+    const price = parseFloat(newItemPrice);
+    if (!newItemName.trim() || !(price > 0)) return;
 
-    const newItem: MenuItem = {
-      id: 'custom_' + Date.now(),
-      name: newItemName.trim(),
-      category: newItemCategory,
-      price: parseFloat(newItemPrice) || 5.0,
-      description: newItemDesc.trim() || 'Freshly made cafe specialty',
-      isVeg: newItemVeg,
-      isSpicy: newItemSpicy,
-      isAvailable: true,
-    };
+    setIsSavingItem(true);
+    try {
+      await addMenuItem({
+        name: newItemName.trim(),
+        category: newItemCategory,
+        price,
+        description: newItemDesc.trim(),
+        // Reuse the photo of another item in the same section
+        image: menuItems.find((item) => item.category === newItemCategory)?.image,
+        isVeg: newItemVeg,
+        isSpicy: newItemSpicy,
+        isAvailable: true,
+      });
+      setIsAddingNew(false);
+      setNewItemName('');
+      setNewItemPrice('');
+      setNewItemDesc('');
+    } catch (err) {
+      alert(`Could not add the item: ${err instanceof Error ? err.message : err}`);
+    } finally {
+      setIsSavingItem(false);
+    }
+  };
 
-    addMenuItem(newItem);
-    setIsAddingNew(false);
-    setNewItemName('');
-    setNewItemDesc('');
+  const handleDeleteItem = async (item: MenuItem) => {
+    if (!confirm(`Delete "${item.name}" from the menu?`)) return;
+    try {
+      await deleteMenuItem(item.id);
+    } catch (err) {
+      alert(`Could not delete the item: ${err instanceof Error ? err.message : err}`);
+    }
   };
 
   const handleSaveSettings = (e: React.FormEvent) => {
@@ -81,7 +159,9 @@ export const MenuManagerModal: React.FC = () => {
     updateSettings(formSettings);
     alert('Cafe Settings & Receipt details saved successfully!');
   };
-
+  function handleSearch(term: string) {
+    
+  }
   return (
     <div className="w-full min-w-0 p-3 sm:p-6 max-w-7xl mx-auto space-y-6">
       {/* Header */}
@@ -94,28 +174,36 @@ export const MenuManagerModal: React.FC = () => {
         </div>
 
         {/* Tab switch */}
-        <div className="flex items-center gap-2">
-          <div className="flex items-center p-1 bg-neutral-900 border border-neutral-800 rounded-xl text-xs">
-            <button
-              onClick={() => setActiveSubTab('items')}
-              className={`px-3 py-1.5 rounded-lg transition-colors font-medium ${
-                activeSubTab === 'items'
-                  ? 'bg-amber-500 text-neutral-950 font-bold'
-                  : 'text-neutral-400 hover:text-white'
-              }`}
-            >
-              Menu Items ({menuItems.length})
-            </button>
-            <button
-              onClick={() => setActiveSubTab('settings')}
-              className={`px-3 py-1.5 rounded-lg transition-colors font-medium ${
-                activeSubTab === 'settings'
-                  ? 'bg-amber-500 text-neutral-950 font-bold'
-                  : 'text-neutral-400 hover:text-white'
-              }`}
-            >
-              Store & Receipt Config
-            </button>
+        <div className="flex items-center gap-2 max-w-full">
+          <div className="flex items-center p-1 bg-neutral-900 border border-neutral-800 rounded-xl text-xs overflow-x-auto scrollbar-none">
+            {(
+              [
+                ['items', `Menu Items (${menuItems.length})`, `Items (${menuItems.length})`],
+                ['materials', 'Raw Materials', 'Raw Materials'],
+                ['settings', 'Store & Receipt Config', 'Store Config'],
+              ] as const
+            ).map(([tab, label, shortLabel]) => (
+              <button
+                key={tab}
+                onClick={() => setActiveSubTab(tab)}
+                className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors font-medium ${
+                  activeSubTab === tab
+                    ? 'bg-amber-500 text-neutral-950 font-bold'
+                    : 'text-neutral-400 hover:text-white'
+                }`}
+              >
+                <span className="sm:hidden">{shortLabel}</span>
+                <span className="hidden sm:inline">{label}</span>
+                {tab === 'materials' && lowMaterialCount > 0 && (
+                  <span
+                    className="px-1.5 rounded-md bg-rose-500 text-white text-[10px] font-bold"
+                    title={`${lowMaterialCount} low on stock`}
+                  >
+                    {lowMaterialCount}
+                  </span>
+                )}
+              </button>
+            ))}
           </div>
         </div>
       </div>
@@ -134,14 +222,18 @@ export const MenuManagerModal: React.FC = () => {
 
             <button
               onClick={() => {
-                if (confirm('Reset menu items to factory defaults?')) {
-                  resetMenuToDefault();
+                if (
+                  confirm(
+                    'Replace the whole menu with the original NU Cafe menu? Price changes and added items will be lost.'
+                  )
+                ) {
+                  resetMenuToDefault().catch((err) => alert(`Could not reset the menu: ${err.message}`));
                 }
               }}
               className="flex items-center gap-1.5 text-xs text-neutral-500 hover:text-rose-400 transition-colors"
             >
               <RotateCcw className="w-3.5 h-3.5" />
-              <span>Reset Menu Defaults</span>
+              <span>Reset to NU Cafe Menu</span>
             </button>
           </div>
 
@@ -161,7 +253,7 @@ export const MenuManagerModal: React.FC = () => {
                     required
                     value={newItemName}
                     onChange={(e) => setNewItemName(e.target.value)}
-                    placeholder="e.g. Crispy Jalapeno Broasted Wrap"
+                    placeholder="e.g. Lemon Mint Cooler"
                     className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500"
                   />
                 </div>
@@ -170,15 +262,14 @@ export const MenuManagerModal: React.FC = () => {
                   <label className="text-xs font-semibold text-neutral-300">Category</label>
                   <select
                     value={newItemCategory}
-                    onChange={(e) => setNewItemCategory(e.target.value as ItemCategory)}
-                    className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500 capitalize cursor-pointer"
+                    onChange={(e) => setNewItemCategory(e.target.value as MenuCategoryId)}
+                    className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500 cursor-pointer"
                   >
-                    <option value="burgers">Burgers</option>
-                    <option value="broasted">Broasted Chicken</option>
-                    <option value="tea">Tea & Chai</option>
-                    <option value="juices">Fresh Juices</option>
-                    <option value="sides">Sides & Fries</option>
-                    <option value="desserts">Desserts</option>
+                    {MENU_CATEGORIES.map((cat) => (
+                      <option key={cat.id} value={cat.id}>
+                        {cat.label}
+                      </option>
+                    ))}
                   </select>
                 </div>
               </div>
@@ -190,8 +281,10 @@ export const MenuManagerModal: React.FC = () => {
                   </label>
                   <input
                     type="number"
-                    step="0.01"
+                    step="1"
+                    min="1"
                     required
+                    placeholder="e.g. 60"
                     value={newItemPrice}
                     onChange={(e) => setNewItemPrice(e.target.value)}
                     className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500 font-mono"
@@ -206,7 +299,7 @@ export const MenuManagerModal: React.FC = () => {
                     type="text"
                     value={newItemDesc}
                     onChange={(e) => setNewItemDesc(e.target.value)}
-                    placeholder="e.g. Hand-rolled soft tortilla, spicy broasted fillet, garlic toum"
+                    placeholder="Optional"
                     className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500"
                   />
                 </div>
@@ -244,13 +337,90 @@ export const MenuManagerModal: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold rounded-xl text-xs"
+                  disabled={isSavingItem}
+                  className="px-5 py-2 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-neutral-950 font-bold rounded-xl text-xs"
                 >
-                  Save Item to Menu
+                  {isSavingItem ? 'Saving…' : 'Save Item to Menu'}
                 </button>
               </div>
             </form>
           )}
+
+          {/* Search & Filters */}
+          <div className="flex flex-col md:flex-row md:items-center gap-2.5">
+            <div className="relative flex-1 min-w-0">
+              <label htmlFor="menu-search" className="sr-only">
+                Search menu items
+              </label>
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400 pointer-events-none" />
+              <input
+                id="menu-search"
+                type="search"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search by name, section or price..."
+                className="w-full bg-neutral-900 border border-neutral-800 rounded-xl pl-10 pr-9 py-2.5 text-sm text-neutral-100 placeholder-neutral-500 focus:outline-none focus:border-amber-500/60 focus:ring-1 focus:ring-amber-500/60 transition-colors [&::-webkit-search-cancel-button]:hidden"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-white p-0.5"
+                  aria-label="Clear search"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
+            <div className="flex items-center gap-2">
+              <select
+                value={categoryFilter}
+                onChange={(e) => setCategoryFilter(e.target.value as MenuCategoryId | 'all')}
+                aria-label="Filter by section"
+                className="flex-1 md:flex-none bg-neutral-900 border border-neutral-800 rounded-xl px-3 py-2.5 text-xs text-neutral-200 focus:outline-none focus:border-amber-500/60 cursor-pointer"
+              >
+                <option value="all">All sections</option>
+                {MENU_CATEGORIES.map((cat) => (
+                  <option key={cat.id} value={cat.id}>
+                    {cat.label}
+                  </option>
+                ))}
+              </select>
+
+              <div className="flex items-center p-1 bg-neutral-900 border border-neutral-800 rounded-xl text-xs shrink-0">
+                {(
+                  [
+                    ['all', 'All'],
+                    ['in', 'In Stock'],
+                    ['out', `Sold Out (${soldOutCount})`],
+                  ] as const
+                ).map(([value, label]) => (
+                  <button
+                    key={value}
+                    onClick={() => setStockFilter(value)}
+                    className={`px-2.5 py-1.5 rounded-lg whitespace-nowrap transition-colors font-medium ${
+                      stockFilter === value
+                        ? 'bg-amber-500 text-neutral-950 font-bold'
+                        : 'text-neutral-400 hover:text-white'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between text-xs text-neutral-500 -mt-1">
+            <span>
+              Showing {filteredItems.length} of {menuItems.length} items
+            </span>
+            {hasFilters && (
+              <button onClick={clearFilters} className="text-amber-400 hover:text-amber-300 font-medium">
+                Clear filters
+              </button>
+            )}
+          </div>
 
           {/* Items Stock & Price Table */}
           <div className="bg-neutral-900 border border-neutral-800 rounded-2xl overflow-hidden shadow-xl">
@@ -266,19 +436,34 @@ export const MenuManagerModal: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-neutral-800/60 font-sans">
-                  {menuItems.map((item) => (
+                  {filteredItems.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="py-12 text-center text-neutral-500">
+                        No items match your search.
+                      </td>
+                    </tr>
+                  )}
+                  {filteredItems.map((item) => (
                     <tr
                       key={item.id}
                       className="hover:bg-neutral-850/50 transition-colors text-neutral-300"
                     >
                       <td className="py-3 px-3 sm:px-4 min-w-[140px]">
                         <div className="font-semibold text-white">{item.name}</div>
-                        <div className="hidden sm:block text-[10px] text-neutral-500 truncate max-w-sm">
-                          {item.description}
-                        </div>
+                        <button
+                          onClick={() => setRecipeItem(item)}
+                          className="mt-0.5 flex items-start gap-1 text-left text-[10px] text-neutral-500 hover:text-amber-400 max-w-sm transition-colors"
+                          title="Edit raw materials used"
+                        >
+                          <FlaskConical className="w-3 h-3 shrink-0 mt-px" />
+                          <span className="line-clamp-2">
+                            {describeRecipe(item) || 'Add raw materials'}
+                          </span>
+                        </button>
+                        <CanMakeLabel servings={servingsAvailable(item.recipe, rawMaterials)} />
                       </td>
-                      <td className="hidden sm:table-cell py-3 px-4 capitalize text-neutral-400">
-                        {item.category}
+                      <td className="hidden sm:table-cell py-3 px-4 text-neutral-400 whitespace-nowrap">
+                        {getCategory(item.category)?.label ?? item.category}
                       </td>
                       <td className="py-3 px-3 sm:px-4 font-mono font-bold text-white tabular-nums whitespace-nowrap">
                         {editingPriceId === item.id ? (
@@ -286,7 +471,8 @@ export const MenuManagerModal: React.FC = () => {
                             <span className="text-neutral-500">{settings.currencySymbol}</span>
                             <input
                               type="number"
-                              step="0.01"
+                              step="1"
+                              min="0"
                               value={tempPrice}
                               onChange={(e) => setTempPrice(e.target.value)}
                               className="w-16 bg-neutral-950 border border-amber-500 rounded px-1.5 py-0.5 text-xs text-white"
@@ -329,16 +515,27 @@ export const MenuManagerModal: React.FC = () => {
                           {item.isAvailable ? 'In Stock' : 'Sold Out'}
                         </span>
                       </td>
-                      <td className="py-3 px-3 sm:px-4 text-right">
+                      <td className="py-3 px-3 sm:px-4 text-right whitespace-nowrap">
                         <button
                           onClick={() => toggleItemAvailability(item.id)}
-                          className={`whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                          className={`whitespace-nowrap px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
                             item.isAvailable
                               ? 'bg-neutral-800 hover:bg-rose-950 hover:text-rose-300 text-neutral-300 border border-neutral-700'
                               : 'bg-emerald-600 hover:bg-emerald-500 text-white'
                           }`}
                         >
-                          {item.isAvailable ? 'Mark Sold Out' : 'Restore In Stock'}
+                          <span className="sm:hidden">{item.isAvailable ? 'Sold Out' : 'Restock'}</span>
+                          <span className="hidden sm:inline">
+                            {item.isAvailable ? 'Mark Sold Out' : 'Restore In Stock'}
+                          </span>
+                        </button>
+                        <button
+                          onClick={() => handleDeleteItem(item)}
+                          className="ml-1.5 p-1.5 align-middle rounded-lg text-neutral-500 hover:text-rose-400 hover:bg-rose-950/50 transition-colors"
+                          title="Delete item"
+                          aria-label={`Delete ${item.name}`}
+                        >
+                          <Trash2 className="w-4 h-4" />
                         </button>
                       </td>
                     </tr>
@@ -349,6 +546,10 @@ export const MenuManagerModal: React.FC = () => {
           </div>
         </div>
       )}
+
+      {activeSubTab === 'materials' && <RawMaterialsPanel />}
+
+      {recipeItem && <RecipeEditorModal item={recipeItem} onClose={() => setRecipeItem(null)} />}
 
       {/* STORE & RECEIPT SETTINGS TAB */}
       {activeSubTab === 'settings' && (

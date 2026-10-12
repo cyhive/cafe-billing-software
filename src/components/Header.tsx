@@ -59,7 +59,11 @@ export const Header: React.FC = () => {
           onClick={() => goToTab('pos')}
           className="text-base sm:text-lg md:text-xl font-bold tracking-tight text-white flex items-center gap-2 min-w-0 hover:opacity-90 transition-opacity"
         >
-          <span className="w-2.5 h-2.5 rounded-full bg-amber-500 inline-block shrink-0"></span>
+          <img
+            src="/brand/logo-192.png"
+            alt=""
+            className="w-8 h-8 md:w-9 md:h-9 rounded-full shrink-0"
+          />
           <span className="truncate">{settings.cafeName}</span>
         </button>
         <span className="hidden lg:inline-block whitespace-nowrap text-xs font-mono text-neutral-500 tabular-nums border-l border-neutral-800 pl-3">

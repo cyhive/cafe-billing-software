@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { MenuItem } from '../types';
 import { useBilling } from '../context/BillingContext';
 import { formatCurrency } from '../utils/format';
+import { getCategory } from '../data/categories';
+import { servingsAvailable } from '../data/rawMaterials';
 import { Plus, SlidersHorizontal, Flame, Sparkles, Utensils } from 'lucide-react';
 
 interface MenuCardProps {
@@ -9,7 +11,7 @@ interface MenuCardProps {
 }
 
 export const MenuCard: React.FC<MenuCardProps> = ({ item }) => {
-  const { addToCart, setCustomizingItem, settings } = useBilling();
+  const { addToCart, setCustomizingItem, settings, rawMaterials } = useBilling();
   const [imageError, setImageError] = useState(false);
 
   const handleCardClick = () => {
@@ -31,21 +33,9 @@ export const MenuCard: React.FC<MenuCardProps> = ({ item }) => {
     }
   };
 
-  // Determine category badge icon/text
-  const getCategoryColor = () => {
-    switch (item.category) {
-      case 'burgers':
-        return 'text-amber-400';
-      case 'broasted':
-        return 'text-orange-400';
-      case 'tea':
-        return 'text-amber-300';
-      case 'juices':
-        return 'text-emerald-400';
-      default:
-        return 'text-neutral-400';
-    }
-  };
+  const category = getCategory(item.category);
+  // Servings left from raw-material stock (null when not tracked)
+  const servings = servingsAvailable(item.recipe, rawMaterials);
 
   return (
     <div
@@ -101,6 +91,20 @@ export const MenuCard: React.FC<MenuCardProps> = ({ item }) => {
             )}
           </div>
 
+          {/* Low stock warning (doesn't block the sale) */}
+          {item.isAvailable && servings !== null && servings <= 5 && (
+            <span
+              className={`absolute bottom-2 right-2 px-1.5 py-0.5 rounded-md text-[10px] font-bold shadow-sm border ${
+                servings === 0
+                  ? 'bg-rose-950/90 text-rose-300 border-rose-700'
+                  : 'bg-neutral-900/90 text-amber-300 border-amber-600/60'
+              }`}
+              title="Based on raw material stock"
+            >
+              {servings === 0 ? 'No stock' : `Only ${servings} left`}
+            </span>
+          )}
+
           {!item.isAvailable && (
             <div className="absolute inset-0 bg-black/60 backdrop-blur-[1px] flex items-center justify-center">
               <span className="px-3 py-1 bg-rose-950 text-rose-300 border border-rose-800 rounded-lg text-xs font-semibold uppercase tracking-wider">
@@ -113,11 +117,13 @@ export const MenuCard: React.FC<MenuCardProps> = ({ item }) => {
         {/* Content Details */}
         <div className="p-2.5 sm:p-3.5 space-y-1.5">
           <div className="flex items-center gap-2 text-[11px] text-neutral-400">
-            <span className={`capitalize font-medium ${getCategoryColor()}`}>{item.category}</span>
+            <span className={`font-medium truncate ${category?.color ?? 'text-neutral-400'}`}>
+              {category?.label ?? item.category}
+            </span>
             {item.customizationGroup && (
               <>
                 <span aria-hidden="true">·</span>
-                <span className="text-neutral-500">Customizable</span>
+                <span className="text-neutral-500 shrink-0">Customizable</span>
               </>
             )}
           </div>

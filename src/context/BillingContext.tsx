@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import {
   MenuItem,
   CartItem,
@@ -9,8 +9,10 @@ import {
   CafeSettings,
   ActiveTab,
   CustomOptionChoice,
+  RawMaterial,
 } from '../types';
-import { INITIAL_MENU_ITEMS, INITIAL_CAFE_SETTINGS } from '../data/initialMenu';
+import { INITIAL_CAFE_SETTINGS } from '../data/initialMenu';
+import { api, NewMenuItem, NewRawMaterial } from '../api';
 import { sound } from '../utils/audio';
 
 interface HeldOrder {
@@ -28,6 +30,11 @@ interface BillingContextType {
   activeTab: ActiveTab;
   setActiveTab: (tab: ActiveTab) => void;
 
+  // Server data loading
+  loadState: 'loading' | 'ready' | 'error';
+  loadError: string | null;
+  reloadData: () => void;
+
   // Settings
   settings: CafeSettings;
   updateSettings: (newSettings: Partial<CafeSettings>) => void;
@@ -36,8 +43,16 @@ interface BillingContextType {
   menuItems: MenuItem[];
   updateMenuItem: (item: MenuItem) => void;
   toggleItemAvailability: (id: string) => void;
-  addMenuItem: (item: MenuItem) => void;
-  resetMenuToDefault: () => void;
+  addMenuItem: (item: NewMenuItem) => Promise<void>;
+  deleteMenuItem: (id: string) => Promise<void>;
+  resetMenuToDefault: () => Promise<void>;
+
+  // Raw materials (ingredient stock)
+  rawMaterials: RawMaterial[];
+  addRawMaterial: (material: NewRawMaterial) => Promise<void>;
+  updateRawMaterial: (id: string, changes: Partial<RawMaterial>) => Promise<void>;
+  adjustRawMaterialStock: (id: string, amount: number) => Promise<void>;
+  deleteRawMaterial: (id: string) => Promise<void>;
 
   // Active Cart State
   cart: CartItem[];
@@ -83,9 +98,10 @@ interface BillingContextType {
     paymentMethod: PaymentMethod,
     cashReceived?: number,
     changeDue?: number
-  ) => Bill;
+  ) => Promise<Bill | null>;
+  isSettling: boolean;
   updateOrderStatus: (billId: string, status: OrderStatus) => void;
-  
+
   // Modals & Popups
   activeBillForReceipt: Bill | null;
   setActiveBillForReceipt: (bill: Bill | null) => void;
@@ -109,220 +125,101 @@ interface BillingContextType {
 
 const BillingContext = createContext<BillingContextType | undefined>(undefined);
 
-const LOCAL_STORAGE_KEY_MENU = 'crunchbrew_menu_items_v2';
-const LOCAL_STORAGE_KEY_BILLS = 'crunchbrew_bills_v2';
-const LOCAL_STORAGE_KEY_SETTINGS = 'crunchbrew_settings_v2';
-const LOCAL_STORAGE_KEY_HELD = 'crunchbrew_held_orders_v2';
-const LOCAL_STORAGE_KEY_TOKEN = 'crunchbrew_token_counter_v2';
+const LOCAL_STORAGE_KEY_HELD = 'nucafe_held_orders';
+const LOCAL_STORAGE_KEY_SOUND = 'nucafe_sound_enabled';
 
-// Seed some initial recent bills so reports and KDS look alive from minute 1
-function getInitialBills(): Bill[] {
-  const now = new Date();
-  const makePastDate = (minutesAgo: number) =>
-    new Date(now.getTime() - minutesAgo * 60000).toISOString();
+// How often changes from other devices (new bills, KDS status, menu edits) are picked up
+const BILLS_REFRESH_MS = 10_000;
+const MENU_REFRESH_MS = 30_000;
 
-  return [
-    {
-      id: 'bill-1021',
-      orderNumber: 1021,
-      tokenNumber: 18,
-      createdAt: makePastDate(38),
-      orderType: 'dine-in',
-      tableNumber: 'Table 4',
-      customerName: 'Marcus Cole',
-      customerPhone: '9845012345',
-      items: [
-        {
-          cartItemId: 'c-1',
-          menuItemId: 'b1',
-          name: 'Ember Double Smash Burger',
-          basePrice: 8.99,
-          unitPrice: 8.99,
-          quantity: 2,
-          category: 'burgers',
-        },
-        {
-          cartItemId: 'c-2',
-          menuItemId: 't1',
-          name: 'Signature Royal Karak Chai',
-          basePrice: 2.49,
-          unitPrice: 2.49,
-          quantity: 2,
-          category: 'tea',
-          note: 'Extra Kadak',
-        },
-        {
-          cartItemId: 'c-3',
-          menuItemId: 's1',
-          name: 'Loaded Cheesy Jalapeno Fries',
-          basePrice: 4.99,
-          unitPrice: 4.99,
-          quantity: 1,
-          category: 'sides',
-        },
-      ],
-      subtotal: 27.95,
-      taxPercent: 5,
-      taxAmount: 1.40,
-      discountType: 'percentage',
-      discountValue: 0,
-      discountAmount: 0,
-      total: 29.35,
-      paymentMethod: 'card',
-      status: 'completed',
-    },
-    {
-      id: 'bill-1022',
-      orderNumber: 1022,
-      tokenNumber: 19,
-      createdAt: makePastDate(24),
-      orderType: 'takeaway',
-      customerName: 'Sarah Jenkins',
-      customerPhone: '9871234567',
-      items: [
-        {
-          cartItemId: 'c-4',
-          menuItemId: 'c2',
-          name: '4 Pc Broasted Crunch Box',
-          basePrice: 12.99,
-          unitPrice: 13.49,
-          quantity: 1,
-          category: 'broasted',
-          selectedChoice: { name: 'Spicy Crunch', extraPrice: 0.50 },
-        },
-        {
-          cartItemId: 'c-5',
-          menuItemId: 'j1',
-          name: 'Fresh Squeezed Valencia Orange',
-          basePrice: 4.29,
-          unitPrice: 4.29,
-          quantity: 2,
-          category: 'juices',
-        },
-      ],
-      subtotal: 22.07,
-      taxPercent: 5,
-      taxAmount: 1.10,
-      discountType: 'percentage',
-      discountValue: 5,
-      discountAmount: 1.10,
-      total: 22.07,
-      paymentMethod: 'upi',
-      status: 'ready',
-    },
-    {
-      id: 'bill-1023',
-      orderNumber: 1023,
-      tokenNumber: 20,
-      createdAt: makePastDate(12),
-      orderType: 'dine-in',
-      tableNumber: 'Table 7',
-      customerName: 'David Lee',
-      customerPhone: '9920193847',
-      items: [
-        {
-          cartItemId: 'c-6',
-          menuItemId: 'b2',
-          name: 'Spicy Crispy Zinger Burger',
-          basePrice: 8.49,
-          unitPrice: 8.49,
-          quantity: 1,
-          category: 'burgers',
-        },
-        {
-          cartItemId: 'c-7',
-          menuItemId: 'c5',
-          name: 'Fiery Broasted Hot Wings (6 Pcs)',
-          basePrice: 7.99,
-          unitPrice: 7.99,
-          quantity: 1,
-          category: 'broasted',
-        },
-        {
-          cartItemId: 'c-8',
-          menuItemId: 'j3',
-          name: 'Passion Fruit Mint Mojito Cooler',
-          basePrice: 4.49,
-          unitPrice: 4.49,
-          quantity: 1,
-          category: 'juices',
-        },
-        {
-          cartItemId: 'c-9',
-          menuItemId: 't1',
-          name: 'Signature Royal Karak Chai',
-          basePrice: 2.49,
-          unitPrice: 2.49,
-          quantity: 1,
-          category: 'tea',
-        },
-      ],
-      subtotal: 23.46,
-      taxPercent: 5,
-      taxAmount: 1.17,
-      discountType: 'percentage',
-      discountValue: 0,
-      discountAmount: 0,
-      total: 24.63,
-      paymentMethod: 'cash',
-      cashReceived: 30,
-      changeDue: 5.37,
-      status: 'preparing',
-    },
-  ];
-}
+const errorMessage = (err: unknown) => (err instanceof Error ? err.message : String(err));
+const withDefaults = (stored: Partial<CafeSettings>): CafeSettings => ({
+  ...INITIAL_CAFE_SETTINGS,
+  ...stored,
+});
 
 export const BillingProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [activeTab, setActiveTab] = useState<ActiveTab>('pos');
 
-  // Load Settings
-  const [settings, setSettings] = useState<CafeSettings>(() => {
+  // Menu, store settings and bills live in MongoDB
+  const [loadState, setLoadState] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
+  const [bills, setBills] = useState<Bill[]>([]);
+  const [rawMaterials, setRawMaterials] = useState<RawMaterial[]>([]);
+  const [storeSettings, setStoreSettings] = useState<CafeSettings>(INITIAL_CAFE_SETTINGS);
+
+  // Sound is a per-device preference, so it stays in this browser
+  const [enableSound, setEnableSound] = useState<boolean>(() => {
     try {
-      const stored = localStorage.getItem(LOCAL_STORAGE_KEY_SETTINGS);
-      if (!stored) return INITIAL_CAFE_SETTINGS;
-      const parsed = { ...INITIAL_CAFE_SETTINGS, ...JSON.parse(stored) };
-      // Settings saved before the switch to rupees still carry '$'
-      if (parsed.currencySymbol === '$') parsed.currencySymbol = INITIAL_CAFE_SETTINGS.currencySymbol;
-      return parsed;
+      return localStorage.getItem(LOCAL_STORAGE_KEY_SOUND) !== 'false';
     } catch {
-      return INITIAL_CAFE_SETTINGS;
+      return true;
     }
   });
+  const settings: CafeSettings = { ...storeSettings, enableSound };
+
+  const reloadData = useCallback(async () => {
+    try {
+      const [menu, stored, billList, materials] = await Promise.all([
+        api.getMenu(),
+        api.getSettings(),
+        api.getBills(),
+        api.getMaterials(),
+      ]);
+      setMenuItems(menu);
+      setRawMaterials(materials);
+      setStoreSettings(withDefaults(stored));
+      setBills(billList);
+      setLoadState('ready');
+      setLoadError(null);
+    } catch (err) {
+      setLoadError(errorMessage(err));
+      setLoadState((prev) => (prev === 'ready' ? prev : 'error'));
+    }
+  }, []);
+
+  // Initial load, then keep in sync with other devices
+  useEffect(() => {
+    reloadData();
+    const refreshBills = () =>
+      api
+        .getBills()
+        .then(setBills)
+        .catch((err) => console.warn('Bill refresh failed', err));
+    const refreshMenu = () =>
+      Promise.all([api.getMenu(), api.getSettings(), api.getMaterials()])
+        .then(([menu, stored, materials]) => {
+          setMenuItems(menu);
+          setRawMaterials(materials);
+          setStoreSettings(withDefaults(stored));
+        })
+        .catch((err) => console.warn('Menu refresh failed', err));
+    const billsTimer = setInterval(refreshBills, BILLS_REFRESH_MS);
+    const menuTimer = setInterval(refreshMenu, MENU_REFRESH_MS);
+    const onFocus = () => {
+      refreshBills();
+      refreshMenu();
+    };
+    window.addEventListener('focus', onFocus);
+    return () => {
+      clearInterval(billsTimer);
+      clearInterval(menuTimer);
+      window.removeEventListener('focus', onFocus);
+    };
+  }, [reloadData]);
 
   // Sound sync
   useEffect(() => {
-    sound.setEnabled(settings.enableSound);
-  }, [settings.enableSound]);
-
-  // Load Menu Items
-  const [menuItems, setMenuItems] = useState<MenuItem[]>(() => {
+    sound.setEnabled(enableSound);
     try {
-      const stored = localStorage.getItem(LOCAL_STORAGE_KEY_MENU);
-      if (!stored) return INITIAL_MENU_ITEMS;
-      // Migrate image paths saved before images moved to /public,
-      // and fill in images for stored items that were saved without one
-      return (JSON.parse(stored) as MenuItem[]).map((item) => ({
-        ...item,
-        image:
-          item.image?.replace(/^\/src\/(assets|public)\/images\//, '/images/') ||
-          INITIAL_MENU_ITEMS.find((initial) => initial.id === item.id)?.image,
-      }));
+      localStorage.setItem(LOCAL_STORAGE_KEY_SOUND, String(enableSound));
     } catch {
-      return INITIAL_MENU_ITEMS;
+      // storage unavailable; the preference just won't persist
     }
-  });
+  }, [enableSound]);
 
-  // Load Bills
-  const [bills, setBills] = useState<Bill[]>(() => {
-    try {
-      const stored = localStorage.getItem(LOCAL_STORAGE_KEY_BILLS);
-      return stored ? JSON.parse(stored) : getInitialBills();
-    } catch {
-      return getInitialBills();
-    }
-  });
-
-  // Load Held orders
+  // Held orders are parked on this device only
   const [heldOrders, setHeldOrders] = useState<HeldOrder[]>(() => {
     try {
       const stored = localStorage.getItem(LOCAL_STORAGE_KEY_HELD);
@@ -332,41 +229,6 @@ export const BillingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   });
 
-  // Token Counter
-  const [tokenCounter, setTokenCounter] = useState<number>(() => {
-    try {
-      const stored = localStorage.getItem(LOCAL_STORAGE_KEY_TOKEN);
-      return stored ? parseInt(stored, 10) : 21;
-    } catch {
-      return 21;
-    }
-  });
-
-  // Save to localStorage
-  useEffect(() => {
-    try {
-      localStorage.setItem(LOCAL_STORAGE_KEY_MENU, JSON.stringify(menuItems));
-    } catch (e) {
-      console.warn('Failed to save menu items', e);
-    }
-  }, [menuItems]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(LOCAL_STORAGE_KEY_BILLS, JSON.stringify(bills));
-    } catch (e) {
-      console.warn('Failed to save bills', e);
-    }
-  }, [bills]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(LOCAL_STORAGE_KEY_SETTINGS, JSON.stringify(settings));
-    } catch (e) {
-      console.warn('Failed to save settings', e);
-    }
-  }, [settings]);
-
   useEffect(() => {
     try {
       localStorage.setItem(LOCAL_STORAGE_KEY_HELD, JSON.stringify(heldOrders));
@@ -374,14 +236,6 @@ export const BillingProvider: React.FC<{ children: React.ReactNode }> = ({ child
       console.warn('Failed to save held orders', e);
     }
   }, [heldOrders]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(LOCAL_STORAGE_KEY_TOKEN, tokenCounter.toString());
-    } catch (e) {
-      console.warn('Failed to save token counter', e);
-    }
-  }, [tokenCounter]);
 
   // Current Active Cart State
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -392,15 +246,21 @@ export const BillingProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [orderNote, setOrderNote] = useState<string>('');
 
   // Discount & Tax calculations
-  const [taxPercent, setTaxPercent] = useState<number>(settings.taxPercent || 5.0);
+  const [taxPercent, setTaxPercent] = useState<number>(storeSettings.taxPercent);
   const [discountType, setDiscountType] = useState<'percentage' | 'fixed'>('percentage');
   const [discountValue, setDiscountValue] = useState<number>(0);
+
+  // Follow the store tax rate once it loads or is changed
+  useEffect(() => {
+    setTaxPercent(storeSettings.taxPercent);
+  }, [storeSettings.taxPercent]);
 
   // Popups and Modals
   const [activeBillForReceipt, setActiveBillForReceipt] = useState<Bill | null>(null);
   const [customizingItem, setCustomizingItem] = useState<MenuItem | null>(null);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState<boolean>(false);
   const [isHoldModalOpen, setIsHoldModalOpen] = useState<boolean>(false);
+  const [isSettling, setIsSettling] = useState(false);
 
   // Computed Cart Numbers
   const subtotal = cart.reduce((acc, item) => acc + item.unitPrice * item.quantity, 0);
@@ -530,86 +390,143 @@ export const BillingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     sound.playClick();
   };
 
-  // Settle & complete order
-  const settleOrder = (
+  // Settle & complete order. The server assigns the bill and token numbers.
+  const settleOrder = async (
     paymentMethod: PaymentMethod,
     cashReceived?: number,
     changeDue?: number
-  ): Bill => {
-    const orderNum = bills.length > 0 ? Math.max(...bills.map((b) => b.orderNumber)) + 1 : 1001;
-    const currentToken = tokenCounter;
-    setTokenCounter((prev) => (prev >= 99 ? 1 : prev + 1));
+  ): Promise<Bill | null> => {
+    if (cart.length === 0 || isSettling) return null;
+    setIsSettling(true);
+    try {
+      const newBill = await api.createBill({
+        orderType,
+        tableNumber: orderType === 'dine-in' ? tableNumber : undefined,
+        customerName: customerName.trim() || undefined,
+        customerPhone: customerPhone.trim() || undefined,
+        items: [...cart],
+        subtotal,
+        taxPercent,
+        taxAmount,
+        discountType,
+        discountValue,
+        discountAmount,
+        total: grandTotal,
+        paymentMethod,
+        cashReceived,
+        changeDue,
+        notes: orderNote.trim() || undefined,
+      });
 
-    const newBill: Bill = {
-      id: 'bill-' + Date.now(),
-      orderNumber: orderNum,
-      tokenNumber: currentToken,
-      createdAt: new Date().toISOString(),
-      orderType,
-      tableNumber: orderType === 'dine-in' ? tableNumber : undefined,
-      customerName: customerName.trim() || undefined,
-      customerPhone: customerPhone.trim() || undefined,
-      items: [...cart],
-      subtotal,
-      taxPercent,
-      taxAmount,
-      discountType,
-      discountValue,
-      discountAmount,
-      total: grandTotal,
-      paymentMethod,
-      cashReceived,
-      changeDue,
-      status: 'preparing',
-      notes: orderNote.trim() || undefined,
-    };
+      setBills((prev) => [newBill, ...prev]);
+      sound.playSuccessChime();
+      // The server used up raw materials for this bill
+      api.getMaterials().then(setRawMaterials).catch(() => {});
 
-    setBills((prev) => [newBill, ...prev]);
-    sound.playSuccessChime();
-
-    // Prepare for next order
-    clearCart();
-    setIsPaymentModalOpen(false);
-    setActiveBillForReceipt(newBill);
-
-    return newBill;
+      // Prepare for next order
+      clearCart();
+      setIsPaymentModalOpen(false);
+      setActiveBillForReceipt(newBill);
+      return newBill;
+    } catch (err) {
+      alert(
+        `Could not save the bill: ${errorMessage(err)}\n\nThe order is still in the cart. Please try again.`
+      );
+      return null;
+    } finally {
+      setIsSettling(false);
+    }
   };
 
   // Update kitchen order status
   const updateOrderStatus = (billId: string, status: OrderStatus) => {
-    setBills((prev) =>
-      prev.map((b) => (b.id === billId ? { ...b, status } : b))
-    );
+    setBills((prev) => prev.map((b) => (b.id === billId ? { ...b, status } : b)));
     sound.playClick();
+    api.updateBillStatus(billId, status).catch((err) => {
+      alert(`Could not update the order: ${errorMessage(err)}`);
+      api.getBills().then(setBills).catch(() => {});
+    });
   };
 
-  // Menu item modification
+  // Menu edits update the screen straight away, then save to the server
+  const saveMenuChanges = (id: string, changes: Partial<MenuItem>) => {
+    setMenuItems((prev) => prev.map((item) => (item.id === id ? { ...item, ...changes } : item)));
+    api.updateMenuItem(id, changes).catch((err) => {
+      alert(`Could not save the menu change: ${errorMessage(err)}`);
+      api.getMenu().then(setMenuItems).catch(() => {});
+    });
+  };
+
   const updateMenuItem = (updatedItem: MenuItem) => {
-    setMenuItems((prev) =>
-      prev.map((item) => (item.id === updatedItem.id ? updatedItem : item))
-    );
+    const { id, ...changes } = updatedItem;
+    saveMenuChanges(id, changes);
   };
 
   const toggleItemAvailability = (id: string) => {
-    setMenuItems((prev) =>
-      prev.map((item) =>
-        item.id === id ? { ...item, isAvailable: !item.isAvailable } : item
-      )
-    );
+    const item = menuItems.find((i) => i.id === id);
+    if (!item) return;
+    saveMenuChanges(id, { isAvailable: !item.isAvailable });
     sound.playClick();
   };
 
-  const addMenuItem = (item: MenuItem) => {
-    setMenuItems((prev) => [item, ...prev]);
+  const addMenuItem = async (item: NewMenuItem) => {
+    const created = await api.createMenuItem(item);
+    setMenuItems((prev) => [created, ...prev]);
   };
 
-  const resetMenuToDefault = () => {
-    setMenuItems(INITIAL_MENU_ITEMS);
-    localStorage.removeItem(LOCAL_STORAGE_KEY_MENU);
+  const deleteMenuItem = async (id: string) => {
+    await api.deleteMenuItem(id);
+    setMenuItems((prev) => prev.filter((item) => item.id !== id));
+  };
+
+  const resetMenuToDefault = async () => {
+    setMenuItems(await api.resetMenu());
+  };
+
+  const replaceMaterial = (updated: RawMaterial) =>
+    setRawMaterials((prev) => prev.map((m) => (m.id === updated.id ? updated : m)));
+
+  const addRawMaterial = async (material: NewRawMaterial) => {
+    const created = await api.createMaterial(material);
+    setRawMaterials((prev) => [...prev, created].sort((a, b) => a.name.localeCompare(b.name)));
+  };
+
+  const updateRawMaterial = async (id: string, changes: Partial<RawMaterial>) => {
+    replaceMaterial(await api.updateMaterial(id, changes));
+    // A unit change may have converted recipe amounts on the server
+    if (changes.unit) setMenuItems(await api.getMenu());
+  };
+
+  const adjustRawMaterialStock = async (id: string, amount: number) => {
+    replaceMaterial(await api.adjustMaterialStock(id, amount));
+  };
+
+  const deleteRawMaterial = async (id: string) => {
+    await api.deleteMaterial(id);
+    setRawMaterials((prev) => prev.filter((m) => m.id !== id));
+    // The server also removed it from recipes
+    setMenuItems((prev) =>
+      prev.map((item) =>
+        item.recipe?.some((line) => line.materialId === id)
+          ? { ...item, recipe: item.recipe.filter((line) => line.materialId !== id) }
+          : item
+      )
+    );
   };
 
   const updateSettings = (newSettings: Partial<CafeSettings>) => {
-    setSettings((prev) => ({ ...prev, ...newSettings }));
+    const { enableSound: soundPref, ...storeChanges } = newSettings;
+    if (soundPref !== undefined) setEnableSound(soundPref);
+    if (Object.keys(storeChanges).length === 0) return;
+
+    setStoreSettings((prev) => ({ ...prev, ...storeChanges }));
+    api
+      .updateSettings(storeChanges)
+      .then((saved) => setStoreSettings(withDefaults(saved)))
+      .catch((err) => {
+        alert(`Could not save settings: ${errorMessage(err)}`);
+        api.getSettings().then((saved) => setStoreSettings(withDefaults(saved))).catch(() => {});
+      });
   };
 
   // Compute Today's Stats
@@ -638,13 +555,22 @@ export const BillingProvider: React.FC<{ children: React.ReactNode }> = ({ child
       value={{
         activeTab,
         setActiveTab,
+        loadState,
+        loadError,
+        reloadData,
         settings,
         updateSettings,
         menuItems,
         updateMenuItem,
         toggleItemAvailability,
         addMenuItem,
+        deleteMenuItem,
         resetMenuToDefault,
+        rawMaterials,
+        addRawMaterial,
+        updateRawMaterial,
+        adjustRawMaterialStock,
+        deleteRawMaterial,
         cart,
         orderType,
         setOrderType,
@@ -677,6 +603,7 @@ export const BillingProvider: React.FC<{ children: React.ReactNode }> = ({ child
         deleteHeldOrder,
         bills,
         settleOrder,
+        isSettling,
         updateOrderStatus,
         activeBillForReceipt,
         setActiveBillForReceipt,

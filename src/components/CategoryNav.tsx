@@ -1,5 +1,6 @@
 import React from 'react';
 import { ItemCategory } from '../types';
+import { MENU_CATEGORIES } from '../data/categories';
 import { Search, X, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface CategoryNavProps {
@@ -85,12 +86,7 @@ export const CategoryNav: React.FC<CategoryNavProps> = ({
 
   const categories: { id: ItemCategory; label: string; icon: string }[] = [
     { id: 'all', label: 'All Items', icon: '🍽️' },
-    { id: 'burgers', label: 'Gourmet Burgers', icon: '🍔' },
-    { id: 'broasted', label: 'Broasted Chicken', icon: '🍗' },
-    { id: 'tea', label: 'Karak & Teas', icon: '☕' },
-    { id: 'juices', label: 'Fresh Juices & Mojitos', icon: '🍹' },
-    { id: 'sides', label: 'Fries & Sides', icon: '🍟' },
-    { id: 'desserts', label: 'Waffles & Shakes', icon: '🧇' },
+    ...MENU_CATEGORIES,
   ];
 
   return (
@@ -103,7 +99,7 @@ export const CategoryNav: React.FC<CategoryNavProps> = ({
             type="text"
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
-            placeholder="Search burger, broasted, karak chai, avocado shake..."
+            placeholder="Search tea, lime, shakes, burgers..."
             className="w-full bg-neutral-900 border border-neutral-800 rounded-xl pl-10 pr-9 py-2.5 text-sm text-neutral-100 placeholder-neutral-500 focus:outline-none focus:border-amber-500/60 focus:ring-1 focus:ring-amber-500/60 transition-colors"
           />
           {searchQuery && (

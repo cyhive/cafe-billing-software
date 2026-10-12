@@ -1,11 +1,6 @@
-export type ItemCategory = 
-  | 'all'
-  | 'burgers'
-  | 'broasted'
-  | 'tea'
-  | 'juices'
-  | 'sides'
-  | 'desserts';
+import type { MenuCategoryId } from '../data/categories';
+
+export type ItemCategory = 'all' | MenuCategoryId;
 
 export interface CustomOptionChoice {
   name: string;
@@ -27,6 +22,25 @@ export interface MenuItem {
     title: string;
     choices: CustomOptionChoice[];
   };
+  // Raw materials used for one serving
+  recipe?: RecipeLine[];
+}
+
+export type MaterialUnit = 'kg' | 'g' | 'L' | 'ml' | 'pcs' | 'scoop';
+
+export interface RawMaterial {
+  id: string;
+  name: string;
+  unit: MaterialUnit;
+  stock: number;
+  // Warn when stock falls to or below this level
+  lowStockLevel: number;
+}
+
+export interface RecipeLine {
+  materialId: string;
+  // Amount per serving, in the material's unit
+  quantity: number;
 }
 
 export interface CartItem {

@@ -10,6 +10,14 @@ interface ThermalReceiptProps {
 }
 
 export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({ bill, settings, onClose }) => {
+  // Close with Esc, as the hint under the receipt says
+  React.useEffect(() => {
+    if (!bill) return;
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [bill, onClose]);
+
   if (!bill) return null;
 
   const handlePrint = () => {
@@ -78,12 +86,19 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({ bill, settings, 
         >
           {/* Header */}
           <div className="text-center space-y-1">
+            <img
+              src="/brand/logo-192.png"
+              alt=""
+              className="w-14 h-14 mx-auto rounded-full grayscale"
+            />
             <h1 className="text-base font-extrabold tracking-tight uppercase">
               {settings.cafeName}
             </h1>
             <p className="text-[10px] text-neutral-700">{settings.tagline}</p>
-            <p className="text-[10px] text-neutral-600">{settings.address}</p>
-            <p className="text-[10px] text-neutral-600">Ph: {settings.phone}</p>
+            {settings.address && (
+              <p className="text-[10px] text-neutral-600">{settings.address}</p>
+            )}
+            {settings.phone && <p className="text-[10px] text-neutral-600">Ph: {settings.phone}</p>}
             {settings.gstin && (
               <p className="text-[9px] text-neutral-600">GSTIN: {settings.gstin}</p>
             )}
@@ -241,7 +256,6 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({ bill, settings, 
             <p className="text-[10px] font-bold text-neutral-800 pt-1">
               {settings.receiptFooterMessage}
             </p>
-            <p className="text-[9px] text-neutral-500">WiFi: CrunchBrewGuest / Pass: burgerbroast</p>
           </div>
         </div>
 

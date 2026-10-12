@@ -19,7 +19,7 @@ interface PaymentModalProps {
 }
 
 export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose }) => {
-  const { grandTotal, settleOrder, settings, orderType, tableNumber } = useBilling();
+  const { grandTotal, settleOrder, isSettling, settings, orderType, tableNumber } = useBilling();
 
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
   const [cashTendered, setCashTendered] = useState<string>(grandTotal.toFixed(2));
@@ -37,11 +37,12 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose }) =
   // Preset cash buttons
   const cashPresets = [
     grandTotal,
-    Math.ceil(grandTotal / 5) * 5,
     Math.ceil(grandTotal / 10) * 10,
-    20,
-    50,
+    Math.ceil(grandTotal / 50) * 50,
     100,
+    200,
+    500,
+    2000,
   ].filter((val, idx, self) => val >= grandTotal && self.indexOf(val) === idx);
 
   const handleCompleteOrder = () => {
@@ -309,11 +310,11 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose }) =
 
           <button
             onClick={handleCompleteOrder}
-            disabled={paymentMethod === 'cash' && !isCashSufficient}
+            disabled={isSettling || (paymentMethod === 'cash' && !isCashSufficient)}
             className="flex-1 flex items-center justify-center gap-2 py-3 px-5 rounded-xl bg-amber-500 hover:bg-amber-400 disabled:opacity-40 disabled:cursor-not-allowed text-neutral-950 text-sm font-bold shadow-lg shadow-amber-500/25 active:scale-95 transition-all"
           >
             <Printer className="w-4 h-4 stroke-[2.5]" />
-            <span>Complete Order & Print Receipt</span>
+            <span>{isSettling ? 'Saving…' : 'Complete Order & Print Receipt'}</span>
           </button>
         </div>
       </div>
