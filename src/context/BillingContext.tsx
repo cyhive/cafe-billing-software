@@ -12,6 +12,7 @@ import {
   RawMaterial,
 } from '../types';
 import { INITIAL_CAFE_SETTINGS } from '../data/initialMenu';
+import { describeCombo } from '../data/rawMaterials';
 import { api, NewMenuItem, NewRawMaterial } from '../api';
 import { sound } from '../utils/audio';
 
@@ -313,6 +314,7 @@ export const BillingProvider: React.FC<{ children: React.ReactNode }> = ({ child
         quantity: 1,
         note,
         category: item.category,
+        includes: item.comboItems?.length ? describeCombo(item, menuItems) : undefined,
       };
       return [...prev, newCartItem];
     });
@@ -476,7 +478,8 @@ export const BillingProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const deleteMenuItem = async (id: string) => {
     await api.deleteMenuItem(id);
-    setMenuItems((prev) => prev.filter((item) => item.id !== id));
+    // Reload: the server also removed the item from any combo that had it
+    setMenuItems(await api.getMenu());
   };
 
   const resetMenuToDefault = async () => {

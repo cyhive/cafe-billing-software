@@ -178,6 +178,12 @@ export const KitchenDisplay: React.FC = () => {
                         </span>
                       </div>
 
+                      {item.includes?.map((part) => (
+                        <div key={part} className="text-[11px] text-neutral-300 pl-1">
+                          ↳ {part}
+                        </div>
+                      ))}
+
                       {item.selectedChoice && (
                         <div className="text-[11px] text-amber-300 font-medium pl-1">
                           ↳ {item.selectedChoice.name}

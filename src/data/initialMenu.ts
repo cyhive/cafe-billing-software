@@ -21,6 +21,7 @@ export const INITIAL_CAFE_SETTINGS: CafeSettings = {
 const img = (name: string) => `/images/menu/${name}.jpg`;
 
 const DEFAULT_DESCRIPTIONS: Record<MenuCategoryId, string> = {
+  combos: 'Combo offer.',
   lime: 'Freshly squeezed lime cooler, served chilled.',
   juice: 'Fresh fruit juice, made to order.',
   mojito: 'Sparkling mint mojito with crushed ice.',

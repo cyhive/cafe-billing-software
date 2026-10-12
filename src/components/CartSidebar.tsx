@@ -189,6 +189,11 @@ export const CartSidebar: React.FC = () => {
                   <h4 className="text-xs font-semibold text-neutral-100 line-clamp-1">
                     {item.name}
                   </h4>
+                  {item.includes && (
+                    <span className="text-[11px] text-neutral-400 block truncate">
+                      ↳ {item.includes.join(' + ')}
+                    </span>
+                  )}
                   {item.selectedChoice && (
                     <span className="text-[11px] text-amber-400 font-medium block truncate">
                       ↳ {item.selectedChoice.name}

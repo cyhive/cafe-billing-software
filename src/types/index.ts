@@ -24,6 +24,13 @@ export interface MenuItem {
   };
   // Raw materials used for one serving
   recipe?: RecipeLine[];
+  // Set for combo offers: the menu items included in one combo
+  comboItems?: ComboLine[];
+}
+
+export interface ComboLine {
+  menuItemId: string;
+  quantity: number;
 }
 
 export type MaterialUnit = 'kg' | 'g' | 'L' | 'ml' | 'pcs' | 'scoop';
@@ -53,6 +60,8 @@ export interface CartItem {
   quantity: number;
   note?: string;
   category: ItemCategory;
+  // For combos: what's inside, e.g. ["Zinger Burger", "2 x Soda Lime"]
+  includes?: string[];
 }
 
 export type OrderType = 'dine-in' | 'takeaway' | 'delivery';

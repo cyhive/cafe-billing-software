@@ -86,7 +86,7 @@ export const CategoryNav: React.FC<CategoryNavProps> = ({
 
   const categories: { id: ItemCategory; label: string; icon: string }[] = [
     { id: 'all', label: 'All Items', icon: '🍽️' },
-    ...MENU_CATEGORIES,
+    ...MENU_CATEGORIES.filter((cat) => (counts[cat.id] || 0) > 0 || cat.id === selectedCategory),
   ];
 
   return (

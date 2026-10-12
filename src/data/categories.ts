@@ -1,6 +1,7 @@
 // Menu sections, in the same order as the printed NU Cafe menu.
 // Shared by the POS UI and the server seed script.
 export const MENU_CATEGORIES = [
+  { id: 'combos', label: 'Combo Offers', icon: '🎁', color: 'text-rose-400' },
   { id: 'lime', label: 'Lime', icon: '🍋', color: 'text-lime-400' },
   { id: 'juice', label: 'Fresh Juice', icon: '🍊', color: 'text-orange-400' },
   { id: 'mojito', label: 'Mojitos', icon: '🌿', color: 'text-emerald-400' },

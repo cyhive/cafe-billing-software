@@ -3,7 +3,13 @@ import { useBilling } from '../context/BillingContext';
 import { MenuItem } from '../types';
 import { MENU_CATEGORIES, MenuCategoryId, getCategory } from '../data/categories';
 import { formatCurrency } from '../utils/format';
-import { formatQuantity, servingsAvailable } from '../data/rawMaterials';
+import {
+  describeCombo,
+  effectiveRecipe,
+  formatQuantity,
+  servingsAvailable,
+} from '../data/rawMaterials';
+import { ComboEditorModal } from './ComboEditorModal';
 import { RawMaterialsPanel } from './RawMaterialsPanel';
 import { RecipeEditorModal } from './RecipeEditorModal';
 import {
@@ -20,6 +26,7 @@ import {
   Trash2,
   Search,
   FlaskConical,
+  Gift,
 } from 'lucide-react';
 
 /** Shows how many servings the current raw-material stock can make. */
@@ -49,6 +56,8 @@ export const MenuManagerModal: React.FC = () => {
 
   const [activeSubTab, setActiveSubTab] = useState<'items' | 'materials' | 'settings'>('items');
   const [recipeItem, setRecipeItem] = useState<MenuItem | null>(null);
+  // undefined = closed, null = new combo, item = editing that combo
+  const [comboItem, setComboItem] = useState<MenuItem | null | undefined>(undefined);
 
   const lowMaterialCount = rawMaterials.filter((m) => m.stock <= m.lowStockLevel).length;
   const describeRecipe = (item: MenuItem) =>
@@ -211,14 +220,23 @@ export const MenuManagerModal: React.FC = () => {
       {activeSubTab === 'items' && (
         <div className="space-y-4">
           {/* Top Actions: Add New Item & Reset */}
-          <div className="flex items-center justify-between">
-            <button
-              onClick={() => setIsAddingNew(!isAddingNew)}
-              className="flex items-center gap-2 px-3.5 py-2 bg-amber-500 hover:bg-amber-400 text-neutral-950 rounded-xl font-bold text-xs shadow-sm transition-colors"
-            >
-              <Plus className="w-4 h-4 stroke-[2.5]" />
-              <span>{isAddingNew ? 'Close Form' : 'Add New Item'}</span>
-            </button>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setIsAddingNew(!isAddingNew)}
+                className="flex items-center gap-2 px-3.5 py-2 bg-amber-500 hover:bg-amber-400 text-neutral-950 rounded-xl font-bold text-xs shadow-sm transition-colors"
+              >
+                <Plus className="w-4 h-4 stroke-[2.5]" />
+                <span>{isAddingNew ? 'Close Form' : 'Add New Item'}</span>
+              </button>
+              <button
+                onClick={() => setComboItem(null)}
+                className="flex items-center gap-2 px-3.5 py-2 bg-rose-600 hover:bg-rose-500 text-white rounded-xl font-bold text-xs shadow-sm transition-colors"
+              >
+                <Gift className="w-4 h-4" />
+                <span>Create Combo</span>
+              </button>
+            </div>
 
             <button
               onClick={() => {
@@ -265,7 +283,7 @@ export const MenuManagerModal: React.FC = () => {
                     onChange={(e) => setNewItemCategory(e.target.value as MenuCategoryId)}
                     className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500 cursor-pointer"
                   >
-                    {MENU_CATEGORIES.map((cat) => (
+                    {MENU_CATEGORIES.filter((cat) => cat.id !== 'combos').map((cat) => (
                       <option key={cat.id} value={cat.id}>
                         {cat.label}
                       </option>
@@ -450,17 +468,32 @@ export const MenuManagerModal: React.FC = () => {
                     >
                       <td className="py-3 px-3 sm:px-4 min-w-[140px]">
                         <div className="font-semibold text-white">{item.name}</div>
-                        <button
-                          onClick={() => setRecipeItem(item)}
-                          className="mt-0.5 flex items-start gap-1 text-left text-[10px] text-neutral-500 hover:text-amber-400 max-w-sm transition-colors"
-                          title="Edit raw materials used"
-                        >
-                          <FlaskConical className="w-3 h-3 shrink-0 mt-px" />
-                          <span className="line-clamp-2">
-                            {describeRecipe(item) || 'Add raw materials'}
-                          </span>
-                        </button>
-                        <CanMakeLabel servings={servingsAvailable(item.recipe, rawMaterials)} />
+                        {item.comboItems?.length ? (
+                          <button
+                            onClick={() => setComboItem(item)}
+                            className="mt-0.5 flex items-start gap-1 text-left text-[10px] text-rose-300/80 hover:text-amber-400 max-w-sm transition-colors"
+                            title="Edit combo"
+                          >
+                            <Gift className="w-3 h-3 shrink-0 mt-px" />
+                            <span className="line-clamp-2">
+                              {describeCombo(item, menuItems).join(' + ')}
+                            </span>
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => setRecipeItem(item)}
+                            className="mt-0.5 flex items-start gap-1 text-left text-[10px] text-neutral-500 hover:text-amber-400 max-w-sm transition-colors"
+                            title="Edit raw materials used"
+                          >
+                            <FlaskConical className="w-3 h-3 shrink-0 mt-px" />
+                            <span className="line-clamp-2">
+                              {describeRecipe(item) || 'Add raw materials'}
+                            </span>
+                          </button>
+                        )}
+                        <CanMakeLabel
+                          servings={servingsAvailable(effectiveRecipe(item, menuItems), rawMaterials)}
+                        />
                       </td>
                       <td className="hidden sm:table-cell py-3 px-4 text-neutral-400 whitespace-nowrap">
                         {getCategory(item.category)?.label ?? item.category}
@@ -550,6 +583,9 @@ export const MenuManagerModal: React.FC = () => {
       {activeSubTab === 'materials' && <RawMaterialsPanel />}
 
       {recipeItem && <RecipeEditorModal item={recipeItem} onClose={() => setRecipeItem(null)} />}
+      {comboItem !== undefined && (
+        <ComboEditorModal combo={comboItem} onClose={() => setComboItem(undefined)} />
+      )}
 
       {/* STORE & RECEIPT SETTINGS TAB */}
       {activeSubTab === 'settings' && (

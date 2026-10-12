@@ -159,6 +159,11 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({ bill, settings, 
                     {formatCurrency(item.unitPrice * item.quantity, settings.currencySymbol)}
                   </span>
                 </div>
+                {item.includes?.map((part) => (
+                  <div key={part} className="text-[9px] text-neutral-600 pl-2">
+                    - {part}
+                  </div>
+                ))}
                 {item.selectedChoice && (
                   <div className="text-[9px] text-neutral-600 pl-2">
                     + {item.selectedChoice.name}

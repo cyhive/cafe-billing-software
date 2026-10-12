@@ -1,4 +1,4 @@
-import type { MaterialUnit, RawMaterial, RecipeLine } from '../types/index.js';
+import type { MaterialUnit, MenuItem, RawMaterial, RecipeLine } from '../types/index.js';
 
 export const MATERIAL_UNITS: MaterialUnit[] = ['kg', 'g', 'L', 'ml', 'pcs', 'scoop'];
 
@@ -232,6 +232,47 @@ export const DEFAULT_RECIPES: Record<string, RecipeLine[]> = {
     sugar: 0.015,
   }),
 };
+
+/**
+ * Raw materials used by one serving of an item. For a combo this is the
+ * recipes of everything inside it added together.
+ */
+export function effectiveRecipe(
+  item: Pick<MenuItem, 'recipe' | 'comboItems'>,
+  menuItems: Pick<MenuItem, 'id' | 'recipe'>[]
+): RecipeLine[] {
+  if (!item.comboItems?.length) return item.recipe ?? [];
+  const totals = new Map<string, number>();
+  for (const line of item.comboItems) {
+    const part = menuItems.find((m) => m.id === line.menuItemId);
+    for (const r of part?.recipe ?? []) {
+      totals.set(r.materialId, (totals.get(r.materialId) ?? 0) + r.quantity * line.quantity);
+    }
+  }
+  return [...totals].map(([materialId, quantity]) => ({ materialId, quantity: roundAmount(quantity) }));
+}
+
+/** "Zinger Burger", "2 x Soda Lime" ... for a combo's contents. */
+export function describeCombo(
+  item: Pick<MenuItem, 'comboItems'>,
+  menuItems: Pick<MenuItem, 'id' | 'name'>[]
+): string[] {
+  return (item.comboItems ?? []).map((line) => {
+    const name = menuItems.find((m) => m.id === line.menuItemId)?.name ?? 'Removed item';
+    return line.quantity > 1 ? `${line.quantity} x ${name}` : name;
+  });
+}
+
+/** Sum of the regular prices of a combo's items. */
+export function comboRegularPrice(
+  item: Pick<MenuItem, 'comboItems'>,
+  menuItems: Pick<MenuItem, 'id' | 'price'>[]
+): number {
+  return (item.comboItems ?? []).reduce(
+    (sum, line) => sum + (menuItems.find((m) => m.id === line.menuItemId)?.price ?? 0) * line.quantity,
+    0
+  );
+}
 
 /**
  * How many servings of an item the current stock can make, or null when the

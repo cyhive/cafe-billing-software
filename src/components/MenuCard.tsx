@@ -3,7 +3,12 @@ import { MenuItem } from '../types';
 import { useBilling } from '../context/BillingContext';
 import { formatCurrency } from '../utils/format';
 import { getCategory } from '../data/categories';
-import { servingsAvailable } from '../data/rawMaterials';
+import {
+  comboRegularPrice,
+  describeCombo,
+  effectiveRecipe,
+  servingsAvailable,
+} from '../data/rawMaterials';
 import { Plus, SlidersHorizontal, Flame, Sparkles, Utensils } from 'lucide-react';
 
 interface MenuCardProps {
@@ -11,7 +16,7 @@ interface MenuCardProps {
 }
 
 export const MenuCard: React.FC<MenuCardProps> = ({ item }) => {
-  const { addToCart, setCustomizingItem, settings, rawMaterials } = useBilling();
+  const { addToCart, setCustomizingItem, settings, rawMaterials, menuItems } = useBilling();
   const [imageError, setImageError] = useState(false);
 
   const handleCardClick = () => {
@@ -35,7 +40,9 @@ export const MenuCard: React.FC<MenuCardProps> = ({ item }) => {
 
   const category = getCategory(item.category);
   // Servings left from raw-material stock (null when not tracked)
-  const servings = servingsAvailable(item.recipe, rawMaterials);
+  const servings = servingsAvailable(effectiveRecipe(item, menuItems), rawMaterials);
+  const isCombo = !!item.comboItems?.length;
+  const comboSaving = isCombo ? comboRegularPrice(item, menuItems) - item.price : 0;
 
   return (
     <div
@@ -133,17 +140,22 @@ export const MenuCard: React.FC<MenuCardProps> = ({ item }) => {
           </h3>
 
           <p className="text-xs text-neutral-400 line-clamp-2 leading-relaxed">
-            {item.description}
+            {isCombo ? describeCombo(item, menuItems).join(' + ') : item.description}
           </p>
         </div>
       </div>
 
       {/* Bottom Footer: Price & Add Button */}
       <div className="px-2.5 pb-2.5 sm:px-3.5 sm:pb-3.5 mt-2 flex items-center justify-between gap-2 border-t border-neutral-800/60">
-        <div>
+        <div className="min-w-0">
           <span className="text-sm sm:text-base font-bold text-white font-mono tabular-nums">
             {formatCurrency(item.price, settings.currencySymbol)}
           </span>
+          {comboSaving > 0 && (
+            <div className="text-[10px] font-semibold text-emerald-400 truncate">
+              Save {formatCurrency(comboSaving, settings.currencySymbol)}
+            </div>
+          )}
         </div>
 
         <button

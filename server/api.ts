@@ -1,7 +1,7 @@
 import express, { Request, Response, NextFunction } from 'express';
-import type { Bill, MaterialUnit, MenuItem, OrderStatus, RawMaterial, RecipeLine } from '../src/types/index.js';
+import type { Bill, ComboLine, MaterialUnit, MenuItem, OrderStatus, RawMaterial, RecipeLine } from '../src/types/index.js';
 import { MENU_CATEGORIES } from '../src/data/categories.js';
-import { MATERIAL_UNITS, roundAmount, unitConversionFactor } from '../src/data/rawMaterials.js';
+import { MATERIAL_UNITS, effectiveRecipe, roundAmount, unitConversionFactor } from '../src/data/rawMaterials.js';
 import { bills, menuItems, nextCounter, rawMaterials, resetMenu, settings, SETTINGS_ID } from './db.js';
 
 const NO_ID = { projection: { _id: 0 } } as const;
@@ -60,7 +60,19 @@ function parseMenuItem(body: any, partial: boolean): Partial<MenuItem> {
   if (!partial && out.isAvailable === undefined) out.isAvailable = true;
   if (body.customizationGroup !== undefined) out.customizationGroup = body.customizationGroup || undefined;
   if (body.recipe !== undefined) out.recipe = parseRecipe(body.recipe);
+  if (body.comboItems !== undefined) out.comboItems = parseComboItems(body.comboItems);
   return out;
+}
+
+function parseComboItems(lines: unknown): ComboLine[] {
+  if (!Array.isArray(lines) || lines.length === 0) throw new BadRequest('a combo needs at least one item');
+  return lines.map((line) => {
+    const quantity = Number(line?.quantity);
+    if (typeof line?.menuItemId !== 'string' || !Number.isInteger(quantity) || quantity < 1) {
+      throw new BadRequest('each combo line needs an item and a whole quantity of 1 or more');
+    }
+    return { menuItemId: line.menuItemId, quantity };
+  });
 }
 
 function parseRecipe(recipe: unknown): RecipeLine[] {
@@ -97,15 +109,16 @@ function parseMaterial(body: any, partial: boolean): Partial<RawMaterial> {
   return out;
 }
 
-/** Subtracts the raw materials used by a bill's items from stock. */
+/** Subtracts the raw materials used by a bill's items (combos included) from stock. */
 async function deductMaterials(items: Bill['items']) {
   const menu = await menuItems()
-    .find({ id: { $in: items.map((i) => i.menuItemId) } }, { projection: { id: 1, recipe: 1 } })
+    .find({}, { projection: { _id: 0, id: 1, recipe: 1, comboItems: 1 } })
     .toArray();
   const used = new Map<string, number>();
   for (const cartItem of items) {
-    const recipe = menu.find((m) => m.id === cartItem.menuItemId)?.recipe ?? [];
-    for (const line of recipe) {
+    const item = menu.find((m) => m.id === cartItem.menuItemId);
+    if (!item) continue;
+    for (const line of effectiveRecipe(item, menu)) {
       used.set(line.materialId, (used.get(line.materialId) ?? 0) + line.quantity * cartItem.quantity);
     }
   }
@@ -161,6 +174,11 @@ export function createApiRouter() {
     route(async (req, res) => {
       const { deletedCount } = await menuItems().deleteOne({ id: req.params.id });
       if (!deletedCount) return res.status(404).json({ error: 'Menu item not found' });
+      // Remove it from any combo that included it
+      await menuItems().updateMany(
+        { 'comboItems.menuItemId': req.params.id },
+        { $pull: { comboItems: { menuItemId: req.params.id } } } as never
+      );
       res.status(204).end();
     })
   );
