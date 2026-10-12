@@ -1,22 +1,19 @@
+// Local server: the API plus the React app (Vite in dev, dist/ with --prod).
+// On Vercel, api/index.ts serves the API and Vercel serves dist/.
 import 'dotenv/config';
 import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { createServer } from 'http';
-import { connectDb, seedIfEmpty } from './db';
-import { createApiRouter } from './api';
+import { createApp } from './app.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const isProduction = process.argv.includes('--prod') || process.env.NODE_ENV === 'production';
 const port = Number(process.env.PORT) || 3001;
 
 async function start() {
-  await connectDb();
-  await seedIfEmpty();
-
-  const app = express();
+  const app = createApp();
   const httpServer = createServer(app);
-  app.use('/api', createApiRouter());
 
   if (isProduction) {
     // Serve the built React app (run `npm run build` first)

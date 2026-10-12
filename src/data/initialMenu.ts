@@ -1,6 +1,6 @@
-import { MenuItem, CafeSettings } from '../types';
-import type { MenuCategoryId } from './categories';
-import { DEFAULT_RECIPES } from './rawMaterials';
+import type { MenuItem, CafeSettings } from '../types/index.js';
+import type { MenuCategoryId } from './categories.js';
+import { DEFAULT_RECIPES } from './rawMaterials.js';
 
 // Default store settings. Saved to MongoDB on first run, then edited from
 // Menu & Stock -> Store & Receipt Config.

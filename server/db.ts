@@ -1,7 +1,7 @@
 import { MongoClient, Db, Collection } from 'mongodb';
-import type { Bill, CafeSettings, MenuItem, RawMaterial } from '../src/types';
-import { INITIAL_CAFE_SETTINGS, INITIAL_MENU_ITEMS } from '../src/data/initialMenu';
-import { DEFAULT_RAW_MATERIALS, DEFAULT_RECIPES } from '../src/data/rawMaterials';
+import type { Bill, CafeSettings, MenuItem, RawMaterial } from '../src/types/index.js';
+import { INITIAL_CAFE_SETTINGS, INITIAL_MENU_ITEMS } from '../src/data/initialMenu.js';
+import { DEFAULT_RAW_MATERIALS, DEFAULT_RECIPES } from '../src/data/rawMaterials.js';
 
 type SettingsDoc = CafeSettings & { _id: string };
 type CounterDoc = { _id: string; value: number };

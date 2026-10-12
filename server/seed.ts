@@ -2,7 +2,7 @@
 //   npm run seed           -> only fills an empty database
 //   npm run seed -- --reset -> replaces the whole menu with the default menu
 import 'dotenv/config';
-import { connectDb, menuItems, resetMenu, seedIfEmpty } from './db';
+import { connectDb, menuItems, resetMenu, seedIfEmpty } from './db.js';
 
 async function main() {
   await connectDb();

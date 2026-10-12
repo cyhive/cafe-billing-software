@@ -1,4 +1,4 @@
-import type { MaterialUnit, RawMaterial, RecipeLine } from '../types';
+import type { MaterialUnit, RawMaterial, RecipeLine } from '../types/index.js';
 
 export const MATERIAL_UNITS: MaterialUnit[] = ['kg', 'g', 'L', 'ml', 'pcs', 'scoop'];
 

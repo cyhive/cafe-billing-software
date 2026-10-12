@@ -1,4 +1,4 @@
-import type { MenuCategoryId } from '../data/categories';
+import type { MenuCategoryId } from '../data/categories.js';
 
 export type ItemCategory = 'all' | MenuCategoryId;
 

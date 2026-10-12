@@ -1,8 +1,8 @@
 import express, { Request, Response, NextFunction } from 'express';
-import type { Bill, MaterialUnit, MenuItem, OrderStatus, RawMaterial, RecipeLine } from '../src/types';
-import { MENU_CATEGORIES } from '../src/data/categories';
-import { MATERIAL_UNITS, roundAmount, unitConversionFactor } from '../src/data/rawMaterials';
-import { bills, menuItems, nextCounter, rawMaterials, resetMenu, settings, SETTINGS_ID } from './db';
+import type { Bill, MaterialUnit, MenuItem, OrderStatus, RawMaterial, RecipeLine } from '../src/types/index.js';
+import { MENU_CATEGORIES } from '../src/data/categories.js';
+import { MATERIAL_UNITS, roundAmount, unitConversionFactor } from '../src/data/rawMaterials.js';
+import { bills, menuItems, nextCounter, rawMaterials, resetMenu, settings, SETTINGS_ID } from './db.js';
 
 const NO_ID = { projection: { _id: 0 } } as const;
 const ORDER_STATUSES: OrderStatus[] = ['preparing', 'ready', 'completed', 'cancelled'];
