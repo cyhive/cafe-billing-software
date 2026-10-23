@@ -17,6 +17,7 @@ import { KitchenDisplay } from './components/KitchenDisplay';
 import { PastBills } from './components/PastBills';
 import { SalesReports } from './components/SalesReports';
 import { MenuManagerModal } from './components/MenuManagerModal';
+import { LoginPage } from './components/LoginPage';
 import { ItemCategory } from './types';
 import { MENU_CATEGORIES } from './data/categories';
 import { ArrowRight, Loader2, RefreshCw } from 'lucide-react';
@@ -213,7 +214,7 @@ const AppContent: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-neutral-950 text-neutral-100 flex flex-col font-sans overflow-x-clip">
-      <Header />
+      <Header onLogout={() => window.dispatchEvent(new Event('nu-cafe-logout'))} />
 
       <main className="flex-1 flex flex-col">
         {activeTab === 'pos' && <POSMainView />}
@@ -236,9 +237,54 @@ const AppContent: React.FC = () => {
 };
 
 export default function App() {
-  return (
-    <BillingProvider>
-      <AppContent />
-    </BillingProvider>
-  );
+  const [authState, setAuthState] = useState<'checking' | 'authenticated' | 'unauthenticated'>('checking');
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [authBusy, setAuthBusy] = useState(false);
+
+  const checkSession = React.useCallback(async () => {
+    try {
+      const response = await fetch('/api/auth/session');
+      const data = await response.json();
+      setAuthState(data.authenticated ? 'authenticated' : 'unauthenticated');
+    } catch {
+      setAuthError('Unable to connect to the login service. Please try again.');
+      setAuthState('unauthenticated');
+    }
+  }, []);
+
+  React.useEffect(() => {
+    void checkSession();
+    const logout = async () => {
+      await fetch('/api/auth/logout', { method: 'POST' });
+      setAuthError(null);
+      setAuthState('unauthenticated');
+    };
+    window.addEventListener('nu-cafe-logout', logout);
+    return () => window.removeEventListener('nu-cafe-logout', logout);
+  }, [checkSession]);
+
+  const login = async (username: string, password: string) => {
+    setAuthBusy(true);
+    setAuthError(null);
+    try {
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || 'Could not sign in');
+      setAuthState('authenticated');
+    } catch (error) {
+      setAuthError(error instanceof Error ? error.message : 'Could not sign in');
+    } finally {
+      setAuthBusy(false);
+    }
+  };
+
+  if (authState === 'checking') {
+    return <div className="min-h-screen bg-neutral-950 text-neutral-400 flex items-center justify-center text-sm">Checking your session…</div>;
+  }
+  if (authState !== 'authenticated') return <LoginPage onLogin={login} error={authError} busy={authBusy} />;
+  return <BillingProvider><AppContent /></BillingProvider>;
 }

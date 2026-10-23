@@ -1,6 +1,7 @@
 import express from 'express';
 import { connectDb, seedIfEmpty } from './db.js';
 import { createApiRouter } from './api.js';
+import { createAuthRouter, requireAuthentication } from './auth.js';
 
 // Connects and seeds once per process (or per warm serverless instance)
 let ready: Promise<void> | null = null;
@@ -17,6 +18,8 @@ function ensureReady(): Promise<void> {
 /** Express app serving the POS API under /api. Used locally and on Vercel. */
 export function createApp() {
   const app = express();
+  app.use('/api/auth', createAuthRouter());
+  app.use('/api', requireAuthentication);
   app.use('/api', async (_req, res, next) => {
     try {
       await ensureReady();

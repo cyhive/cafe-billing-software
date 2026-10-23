@@ -1,9 +1,9 @@
 import React from 'react';
 import { useBilling } from '../context/BillingContext';
-import { Volume2, VolumeX, Clock, PauseCircle, ShoppingBag, Menu, X } from 'lucide-react';
+import { Volume2, VolumeX, Clock, PauseCircle, ShoppingBag, Menu, X, LogOut } from 'lucide-react';
 import { ActiveTab } from '../types';
 
-export const Header: React.FC = () => {
+export const Header: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
   const {
     activeTab,
     setActiveTab,
@@ -94,6 +94,9 @@ export const Header: React.FC = () => {
 
       {/* Zone 3: Primary Actions */}
       <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+        <button onClick={onLogout} className="flex items-center gap-1.5 rounded-lg border border-neutral-800 px-2.5 py-2 text-xs font-medium text-neutral-300 transition-colors hover:border-neutral-700 hover:bg-neutral-800 hover:text-white" title="Sign out">
+          <LogOut className="h-4 w-4" /><span className="hidden sm:inline">Sign out</span>
+        </button>
         {/* Held Orders Quick Access */}
         {heldOrders.length > 0 && (
           <button
