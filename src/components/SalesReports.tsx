@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import { useBilling } from '../context/BillingContext';
 import { MENU_CATEGORIES } from '../data/categories';
 import { formatCurrency } from '../utils/format';
@@ -13,10 +13,32 @@ import {
   Calendar,
   Layers,
   Award,
+  Receipt,
 } from 'lucide-react';
+import { formatDateTime } from '../utils/format';
 
 export const SalesReports: React.FC = () => {
-  const { bills, settings, todayStats } = useBilling();
+  const { bills, settings } = useBilling();
+  const [selectedDate, setSelectedDate] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  });
+  const today = new Date();
+  const dateKey = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const selectedBills = useMemo(() => bills.filter((bill) => {
+    const d = new Date(bill.createdAt);
+    return dateKey(d) === selectedDate && bill.status !== 'cancelled';
+  }), [bills, selectedDate]);
+  const todayStats = {
+    revenue: selectedBills.reduce((sum, bill) => sum + bill.total, 0),
+    orderCount: selectedBills.length,
+    cashTotal: selectedBills.filter((b) => b.paymentMethod === 'cash').reduce((sum, b) => sum + b.total, 0),
+    cardTotal: selectedBills.filter((b) => b.paymentMethod === 'card').reduce((sum, b) => sum + b.total, 0),
+    upiTotal: selectedBills.filter((b) => b.paymentMethod === 'upi').reduce((sum, b) => sum + b.total, 0),
+    itemsSold: selectedBills.reduce((sum, b) => sum + b.items.reduce((n, item) => n + item.quantity, 0), 0),
+  };
 
   // Aggregate Category Breakdown
   const categoryStats: Record<string, { count: number; revenue: number }> = {};
@@ -27,7 +49,7 @@ export const SalesReports: React.FC = () => {
   // Aggregate Top Selling Items
   const itemCounts: Record<string, { name: string; qty: number; revenue: number }> = {};
 
-  bills.forEach((bill) => {
+  selectedBills.forEach((bill) => {
     bill.items.forEach((item) => {
       // Category
       const cat = item.category || 'other';
@@ -70,7 +92,7 @@ export const SalesReports: React.FC = () => {
       'Total',
     ];
 
-    const rows = bills.map((b) => [
+    const rows = selectedBills.map((b) => [
       b.orderNumber,
       b.tokenNumber,
       b.createdAt,
@@ -92,7 +114,7 @@ export const SalesReports: React.FC = () => {
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `NU_Cafe_Sales_${new Date().toISOString().slice(0, 10)}.csv`);
+    link.setAttribute('download', `NU_Cafe_Sales_${selectedDate}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -122,12 +144,28 @@ export const SalesReports: React.FC = () => {
         </button>
       </div>
 
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <h2 className="text-sm font-semibold text-white">Shift sales for {new Date(`${selectedDate}T12:00:00`).toLocaleDateString()}</h2>
+          <p className="text-xs text-neutral-500">Choose a day to view its sales, breakdowns and settled bills.</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <button onClick={() => setSelectedDate(dateKey(today))} className={`px-3 py-2 rounded-lg border text-xs font-semibold ${selectedDate === dateKey(today) ? 'bg-amber-500 text-neutral-950 border-amber-500' : 'bg-neutral-900 text-neutral-300 border-neutral-800'}`}>Today</button>
+          <button onClick={() => setSelectedDate(dateKey(yesterday))} className={`px-3 py-2 rounded-lg border text-xs font-semibold ${selectedDate === dateKey(yesterday) ? 'bg-amber-500 text-neutral-950 border-amber-500' : 'bg-neutral-900 text-neutral-300 border-neutral-800'}`}>Yesterday</button>
+          <label className="flex items-center gap-2 px-3 py-2 rounded-lg border border-neutral-800 bg-neutral-900 text-xs text-neutral-300">
+            <Calendar className="w-4 h-4 text-amber-400" />
+            <span>Date</span>
+            <input aria-label="Select sales date" type="date" value={selectedDate} onChange={(e) => e.target.value && setSelectedDate(e.target.value)} className="bg-transparent text-white [color-scheme:dark] outline-none" />
+          </label>
+        </div>
+      </div>
+
       {/* Primary KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Total Today Revenue */}
         <div className="p-4 bg-neutral-900 border border-neutral-800 rounded-2xl space-y-2">
           <div className="flex items-center justify-between text-neutral-400 text-xs">
-            <span>Today's Total Sales</span>
+            <span>Selected Day Sales</span>
             <DollarSign className="w-4 h-4 text-emerald-400" />
           </div>
           <div className="text-2xl font-bold font-mono text-white tabular-nums">
@@ -173,6 +211,16 @@ export const SalesReports: React.FC = () => {
           </div>
           <p className="text-[11px] text-neutral-500">Physical currency to reconcile</p>
         </div>
+      </div>
+
+      <div className="p-5 bg-neutral-900 border border-neutral-800 rounded-2xl space-y-4">
+        <h3 className="text-sm font-bold text-white flex items-center gap-2"><Receipt className="w-4 h-4 text-amber-400" />Bills for this day <span className="text-neutral-500 font-normal">({selectedBills.length})</span></h3>
+        {selectedBills.length === 0 ? <p className="py-5 text-center text-xs text-neutral-500">No settled bills for this day.</p> : <div className="space-y-2">
+          {[...selectedBills].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).map((bill) => <div key={bill.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-neutral-800 bg-neutral-950 px-4 py-3 text-xs">
+            <div><span className="font-bold text-amber-400">T-{bill.tokenNumber} · #{bill.orderNumber}</span><span className="ml-3 text-neutral-400">{formatDateTime(bill.createdAt)}</span><span className="ml-3 capitalize text-neutral-500">{bill.orderType} · {bill.paymentMethod}</span></div>
+            <span className="font-mono font-bold text-white">{formatCurrency(bill.total, settings.currencySymbol)}</span>
+          </div>)}
+        </div>}
       </div>
 
       {/* Payment Modes Split & Top Items */}
