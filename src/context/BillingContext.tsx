@@ -10,6 +10,7 @@ import {
   ActiveTab,
   CustomOptionChoice,
   RawMaterial,
+  Expense,
 } from '../types';
 import { INITIAL_CAFE_SETTINGS } from '../data/initialMenu';
 import { describeCombo } from '../data/rawMaterials';
@@ -67,6 +68,8 @@ interface BillingContextType {
   setCustomerPhone: (phone: string) => void;
   orderNote: string;
   setOrderNote: (note: string) => void;
+  billDate: string;
+  setBillDate: (date: string) => void;
 
   // Cart operations
   addToCart: (item: MenuItem, choice?: CustomOptionChoice, note?: string) => void;
@@ -95,6 +98,11 @@ interface BillingContextType {
 
   // Settlement & Orders History
   bills: Bill[];
+  updateBill: (bill: Bill) => Promise<void>;
+  deleteBill: (id: string) => Promise<void>;
+  expenses: Expense[];
+  addExpense: (expense: Omit<Expense, 'id' | 'createdAt'>) => Promise<void>;
+  deleteExpense: (id: string) => Promise<void>;
   settleOrder: (
     paymentMethod: PaymentMethod,
     cashReceived?: number,
@@ -147,6 +155,7 @@ export const BillingProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [loadError, setLoadError] = useState<string | null>(null);
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [bills, setBills] = useState<Bill[]>([]);
+  const [expenses, setExpenses] = useState<Expense[]>([]);
   const [rawMaterials, setRawMaterials] = useState<RawMaterial[]>([]);
   const [storeSettings, setStoreSettings] = useState<CafeSettings>(INITIAL_CAFE_SETTINGS);
 
@@ -162,16 +171,18 @@ export const BillingProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const reloadData = useCallback(async () => {
     try {
-      const [menu, stored, billList, materials] = await Promise.all([
+      const [menu, stored, billList, materials, expenseList] = await Promise.all([
         api.getMenu(),
         api.getSettings(),
         api.getBills(),
         api.getMaterials(),
+        api.getExpenses(),
       ]);
       setMenuItems(menu);
       setRawMaterials(materials);
       setStoreSettings(withDefaults(stored));
       setBills(billList);
+      setExpenses(expenseList);
       setLoadState('ready');
       setLoadError(null);
     } catch (err) {
@@ -189,10 +200,11 @@ export const BillingProvider: React.FC<{ children: React.ReactNode }> = ({ child
         .then(setBills)
         .catch((err) => console.warn('Bill refresh failed', err));
     const refreshMenu = () =>
-      Promise.all([api.getMenu(), api.getSettings(), api.getMaterials()])
-        .then(([menu, stored, materials]) => {
+      Promise.all([api.getMenu(), api.getSettings(), api.getMaterials(), api.getExpenses()])
+        .then(([menu, stored, materials, expenseList]) => {
           setMenuItems(menu);
           setRawMaterials(materials);
+          setExpenses(expenseList);
           setStoreSettings(withDefaults(stored));
         })
         .catch((err) => console.warn('Menu refresh failed', err));
@@ -245,6 +257,10 @@ export const BillingProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [customerName, setCustomerName] = useState<string>('');
   const [customerPhone, setCustomerPhone] = useState<string>('');
   const [orderNote, setOrderNote] = useState<string>('');
+  const [billDate, setBillDate] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  });
 
   // Discount & Tax calculations
   const [taxPercent, setTaxPercent] = useState<number>(storeSettings.taxPercent);
@@ -418,6 +434,7 @@ export const BillingProvider: React.FC<{ children: React.ReactNode }> = ({ child
         cashReceived,
         changeDue,
         notes: orderNote.trim() || undefined,
+        createdAt: new Date(`${billDate}T12:00:00`).toISOString(),
       });
 
       setBills((prev) => [newBill, ...prev]);
@@ -438,6 +455,23 @@ export const BillingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     } finally {
       setIsSettling(false);
     }
+  };
+
+  const updateBill = async (bill: Bill) => {
+    const saved = await api.updateBill(bill.id, bill);
+    setBills((prev) => prev.map((b) => b.id === saved.id ? saved : b));
+  };
+  const deleteBill = async (id: string) => {
+    await api.deleteBill(id);
+    setBills((prev) => prev.filter((b) => b.id !== id));
+  };
+  const addExpense = async (expense: Omit<Expense, 'id' | 'createdAt'>) => {
+    const saved = await api.createExpense(expense);
+    setExpenses((prev) => [saved, ...prev]);
+  };
+  const deleteExpense = async (id: string) => {
+    await api.deleteExpense(id);
+    setExpenses((prev) => prev.filter((e) => e.id !== id));
   };
 
   // Update kitchen order status
@@ -585,6 +619,8 @@ export const BillingProvider: React.FC<{ children: React.ReactNode }> = ({ child
         setCustomerPhone,
         orderNote,
         setOrderNote,
+        billDate,
+        setBillDate,
         addToCart,
         updateCartQuantity,
         removeFromCart,
@@ -605,6 +641,11 @@ export const BillingProvider: React.FC<{ children: React.ReactNode }> = ({ child
         resumeHeldOrder,
         deleteHeldOrder,
         bills,
+        updateBill,
+        deleteBill,
+        expenses,
+        addExpense,
+        deleteExpense,
         settleOrder,
         isSettling,
         updateOrderStatus,

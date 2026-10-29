@@ -92,6 +92,15 @@ export interface Bill {
   notes?: string;
 }
 
+export interface Expense {
+  id: string;
+  date: string;
+  description: string;
+  category: string;
+  amount: number;
+  createdAt: string;
+}
+
 export interface CafeSettings {
   cafeName: string;
   tagline: string;

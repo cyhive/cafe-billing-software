@@ -1,8 +1,8 @@
 import express, { Request, Response, NextFunction } from 'express';
-import type { Bill, ComboLine, MaterialUnit, MenuItem, OrderStatus, RawMaterial, RecipeLine } from '../src/types/index.js';
+import type { Bill, ComboLine, Expense, MaterialUnit, MenuItem, OrderStatus, RawMaterial, RecipeLine } from '../src/types/index.js';
 import { MENU_CATEGORIES } from '../src/data/categories.js';
 import { MATERIAL_UNITS, effectiveRecipe, roundAmount, unitConversionFactor } from '../src/data/rawMaterials.js';
-import { bills, menuItems, nextCounter, rawMaterials, resetMenu, settings, SETTINGS_ID } from './db.js';
+import { bills, expenses, menuItems, nextCounter, rawMaterials, resetMenu, settings, SETTINGS_ID } from './db.js';
 
 const NO_ID = { projection: { _id: 0 } } as const;
 const ORDER_STATUSES: OrderStatus[] = ['preparing', 'ready', 'completed', 'cancelled'];
@@ -334,7 +334,8 @@ export function createApiRouter() {
       }
       // Bill numbers run forever; token numbers restart every day
       const now = new Date();
-      const day = now.toLocaleDateString('en-CA'); // YYYY-MM-DD in server local time
+      const createdAt = typeof body.createdAt === 'string' && !Number.isNaN(Date.parse(body.createdAt)) ? new Date(body.createdAt) : now;
+      const day = createdAt.toISOString().slice(0, 10);
       const [orderNumber, tokenNumber] = await Promise.all([
         nextCounter('orderNumber', 1000),
         nextCounter(`token-${day}`, 0),
@@ -344,7 +345,7 @@ export function createApiRouter() {
         id: `bill-${orderNumber}`,
         orderNumber,
         tokenNumber,
-        createdAt: now.toISOString(),
+        createdAt: createdAt.toISOString(),
         status: 'preparing',
       };
       await bills().insertOne({ ...bill });
@@ -352,6 +353,47 @@ export function createApiRouter() {
       res.status(201).json(bill);
     })
   );
+
+  api.put('/bills/:id', route(async (req, res) => {
+    const current = await bills().findOne({ id: req.params.id });
+    if (!current) return res.status(404).json({ error: 'Bill not found' });
+    const allowed = ['createdAt', 'orderType', 'tableNumber', 'customerName', 'customerPhone', 'items', 'subtotal', 'taxPercent', 'taxAmount', 'discountType', 'discountValue', 'discountAmount', 'total', 'paymentMethod', 'cashReceived', 'changeDue', 'notes'];
+    const changes: Record<string, unknown> = {};
+    for (const key of allowed) if (req.body[key] !== undefined) changes[key] = req.body[key];
+    if (changes.createdAt !== undefined) {
+      if (typeof changes.createdAt !== 'string' || Number.isNaN(Date.parse(changes.createdAt))) throw new BadRequest('date is invalid');
+      changes.createdAt = new Date(changes.createdAt).toISOString();
+    }
+    if (changes.items !== undefined && (!Array.isArray(changes.items) || changes.items.length === 0)) throw new BadRequest('A bill needs at least one item');
+    if (changes.total !== undefined && (!Number.isFinite(Number(changes.total)) || Number(changes.total) < 0)) throw new BadRequest('total is invalid');
+    const updated = await bills().findOneAndUpdate({ id: req.params.id }, { $set: changes }, { returnDocument: 'after', ...NO_ID });
+    res.json(updated);
+  }));
+
+  api.delete('/bills/:id', route(async (req, res) => {
+    const result = await bills().deleteOne({ id: req.params.id });
+    if (!result.deletedCount) return res.status(404).json({ error: 'Bill not found' });
+    res.status(204).end();
+  }));
+
+  api.get('/expenses', route(async (_req, res) => {
+    res.json(await expenses().find({}, NO_ID).sort({ date: -1, createdAt: -1 }).limit(2000).toArray());
+  }));
+  api.post('/expenses', route(async (req, res) => {
+    const { description, category, amount, date } = req.body;
+    const numericAmount = Number(amount);
+    if (typeof description !== 'string' || !description.trim()) throw new BadRequest('description is required');
+    if (!Number.isFinite(numericAmount) || numericAmount <= 0) throw new BadRequest('amount must be above 0');
+    if (typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(Date.parse(`${date}T12:00:00`))) throw new BadRequest('date is invalid');
+    const expense: Expense = { id: `expense-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, date, description: description.trim(), category: typeof category === 'string' && category.trim() ? category.trim() : 'General', amount: numericAmount, createdAt: new Date().toISOString() };
+    await expenses().insertOne(expense);
+    res.status(201).json(expense);
+  }));
+  api.delete('/expenses/:id', route(async (req, res) => {
+    const result = await expenses().deleteOne({ id: req.params.id });
+    if (!result.deletedCount) return res.status(404).json({ error: 'Expense not found' });
+    res.status(204).end();
+  }));
 
   api.patch(
     '/bills/:id',

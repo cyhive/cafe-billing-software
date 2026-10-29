@@ -1,5 +1,5 @@
 import { MongoClient, Db, Collection } from 'mongodb';
-import type { Bill, CafeSettings, MenuItem, RawMaterial } from '../src/types/index.js';
+import type { Bill, CafeSettings, Expense, MenuItem, RawMaterial } from '../src/types/index.js';
 import { INITIAL_CAFE_SETTINGS, INITIAL_MENU_ITEMS } from '../src/data/initialMenu.js';
 import { DEFAULT_RAW_MATERIALS, DEFAULT_RECIPES } from '../src/data/rawMaterials.js';
 
@@ -22,6 +22,7 @@ export async function connectDb(): Promise<Db> {
     menuItems().createIndex({ id: 1 }, { unique: true }),
     bills().createIndex({ id: 1 }, { unique: true }),
     bills().createIndex({ createdAt: -1 }),
+    expenses().createIndex({ date: -1 }),
     rawMaterials().createIndex({ id: 1 }, { unique: true }),
   ]);
   return db;
@@ -34,6 +35,7 @@ const getDb = () => {
 
 export const menuItems = (): Collection<MenuItem> => getDb().collection<MenuItem>('menuItems');
 export const bills = (): Collection<Bill> => getDb().collection<Bill>('bills');
+export const expenses = (): Collection<Expense> => getDb().collection<Expense>('expenses');
 export const rawMaterials = (): Collection<RawMaterial> =>
   getDb().collection<RawMaterial>('rawMaterials');
 export const settings = (): Collection<SettingsDoc> => getDb().collection<SettingsDoc>('settings');

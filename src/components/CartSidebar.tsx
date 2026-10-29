@@ -37,6 +37,8 @@ export const CartSidebar: React.FC = () => {
     setCustomerPhone,
     orderNote,
     setOrderNote,
+    billDate,
+    setBillDate,
     subtotal,
     taxPercent,
     setTaxPercent,
@@ -287,6 +289,10 @@ export const CartSidebar: React.FC = () => {
       </div>
 
       {/* 3. Calculations & Discount Section */}
+      <div className="px-3.5 pt-3 flex items-center justify-between gap-3 text-xs">
+        <label htmlFor="bill-date" className="text-neutral-400">Bill date</label>
+        <input id="bill-date" type="date" value={billDate} onChange={(e) => setBillDate(e.target.value)} className="bg-neutral-950 border border-neutral-800 rounded-lg px-2 py-1.5 text-white" />
+      </div>
       <div className="p-3.5 border-t border-neutral-800 bg-neutral-950/80 space-y-2 text-xs">
         {/* Quick Discount Selector */}
         <div className="flex items-center justify-between text-neutral-400">

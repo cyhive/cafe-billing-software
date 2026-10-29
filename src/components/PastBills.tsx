@@ -14,12 +14,27 @@ import {
   QrCode,
   Split,
   Eye,
+  Pencil,
+  Trash2,
 } from 'lucide-react';
 
 export const PastBills: React.FC = () => {
-  const { bills, setActiveBillForReceipt, settings } = useBilling();
+  const { bills, setActiveBillForReceipt, settings, updateBill, deleteBill } = useBilling();
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState<string>('all');
+  const [editingBill, setEditingBill] = useState<Bill | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [editDate, setEditDate] = useState('');
+  const [editCustomer, setEditCustomer] = useState('');
+  const [editPhone, setEditPhone] = useState('');
+  const [editNotes, setEditNotes] = useState('');
+  const [editItems, setEditItems] = useState<Bill['items']>([]);
+  const beginEdit = (bill: Bill) => {
+    setEditingBill(bill);
+    setEditDate(new Date(bill.createdAt).toLocaleDateString('en-CA'));
+    setEditCustomer(bill.customerName || ''); setEditPhone(bill.customerPhone || ''); setEditNotes(bill.notes || '');
+    setEditItems(bill.items.map((item) => ({ ...item })));
+  };
 
   const filteredBills = bills.filter((bill) => {
     const q = searchQuery.toLowerCase();
@@ -195,6 +210,8 @@ export const PastBills: React.FC = () => {
                         <Printer className="w-3.5 h-3.5" />
                         <span>Print</span>
                       </button>
+                      <button onClick={() => beginEdit(bill)} className="ml-1 inline-flex items-center gap-1 px-2.5 py-1.5 bg-neutral-800 hover:bg-blue-500 hover:text-neutral-950 text-neutral-300 rounded-lg font-sans text-xs font-semibold" title="Edit bill"><Pencil className="w-3.5 h-3.5"/><span>Edit</span></button>
+                      <button onClick={async () => { if (window.confirm(`Delete bill #${bill.orderNumber}?`)) { try { await deleteBill(bill.id); } catch (e) { alert(e instanceof Error ? e.message : 'Could not delete bill'); } } }} className="ml-1 inline-flex items-center gap-1 px-2.5 py-1.5 bg-neutral-800 hover:bg-rose-600 text-neutral-300 rounded-lg font-sans text-xs font-semibold" title="Delete bill"><Trash2 className="w-3.5 h-3.5"/><span>Delete</span></button>
                     </td>
                   </tr>
                 ))
@@ -203,6 +220,17 @@ export const PastBills: React.FC = () => {
           </table>
         </div>
       </div>
+      {editingBill && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onMouseDown={(e) => { if (e.target === e.currentTarget) setEditingBill(null); }}>
+        <form className="w-full max-w-md rounded-2xl border border-neutral-700 bg-neutral-900 p-5 space-y-4 max-h-[90vh] overflow-y-auto" onSubmit={async (e) => { e.preventDefault(); setSaving(true); try { const subtotal=editItems.reduce((sum,item)=>sum+item.unitPrice*item.quantity,0); const discountAmount=editingBill.discountType==='percentage'?subtotal*Math.min(100,Math.max(0,editingBill.discountValue))/100:Math.min(subtotal,Math.max(0,editingBill.discountValue)); const taxAmount=Math.max(0,subtotal-discountAmount)*editingBill.taxPercent/100; await updateBill({...editingBill, items:editItems, subtotal, discountAmount, taxAmount, total:Math.max(0,subtotal-discountAmount+taxAmount), createdAt:new Date(`${editDate}T12:00:00`).toISOString(), customerName:editCustomer.trim() || undefined, customerPhone:editPhone.trim() || undefined, notes:editNotes.trim() || undefined}); setEditingBill(null); } catch(err) { alert(err instanceof Error ? err.message : 'Could not update bill'); } finally { setSaving(false); } }}>
+          <h2 className="text-white font-bold">Edit bill #{editingBill.orderNumber}</h2>
+          <label className="block text-xs text-neutral-400">Bill date<input type="date" required value={editDate} onChange={e=>setEditDate(e.target.value)} className="mt-1 w-full rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-2 text-white"/></label>
+          <div className="space-y-2"><p className="text-xs text-neutral-400">Items and quantities</p>{editItems.map((item,index)=><div key={item.cartItemId} className="flex items-center justify-between gap-3 text-sm"><span className="text-neutral-200">{item.name} · {formatCurrency(item.unitPrice,settings.currencySymbol)}</span><input aria-label={`Quantity for ${item.name}`} type="number" min="1" step="1" value={item.quantity} onChange={e=>setEditItems(prev=>prev.map((line,i)=>i===index?{...line,quantity:Math.max(1,Number(e.target.value)||1)}:line))} className="w-20 rounded-lg border border-neutral-700 bg-neutral-950 px-2 py-1.5 text-right text-white"/></div>)}</div>
+          <label className="block text-xs text-neutral-400">Customer name<input value={editCustomer} onChange={e=>setEditCustomer(e.target.value)} className="mt-1 w-full rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-2 text-white"/></label>
+          <label className="block text-xs text-neutral-400">Phone<input value={editPhone} onChange={e=>setEditPhone(e.target.value)} className="mt-1 w-full rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-2 text-white"/></label>
+          <label className="block text-xs text-neutral-400">Notes<input value={editNotes} onChange={e=>setEditNotes(e.target.value)} className="mt-1 w-full rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-2 text-white"/></label>
+          <div className="flex justify-end gap-2"><button type="button" onClick={()=>setEditingBill(null)} className="rounded-lg px-3 py-2 text-sm text-neutral-300">Cancel</button><button disabled={saving} className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-bold text-neutral-950">{saving?'Saving…':'Save changes'}</button></div>
+        </form>
+      </div>}
     </div>
   );
 };

@@ -1,4 +1,4 @@
-import type { Bill, CafeSettings, MenuItem, OrderStatus, RawMaterial } from './types';
+import type { Bill, CafeSettings, Expense, MenuItem, OrderStatus, RawMaterial } from './types';
 
 async function request<T>(method: string, url: string, body?: unknown): Promise<T> {
   const res = await fetch(`/api${url}`, {
@@ -13,7 +13,8 @@ async function request<T>(method: string, url: string, body?: unknown): Promise<
   return res.status === 204 ? (undefined as T) : res.json();
 }
 
-export type NewBill = Omit<Bill, 'id' | 'orderNumber' | 'tokenNumber' | 'createdAt' | 'status'>;
+export type NewBill = Omit<Bill, 'id' | 'orderNumber' | 'tokenNumber' | 'status'>;
+export type NewExpense = Omit<Expense, 'id' | 'createdAt'>;
 export type NewMenuItem = Omit<MenuItem, 'id'>;
 export type NewRawMaterial = Omit<RawMaterial, 'id'>;
 
@@ -38,6 +39,11 @@ export const api = {
 
   getBills: () => request<Bill[]>('GET', '/bills'),
   createBill: (bill: NewBill) => request<Bill>('POST', '/bills', bill),
+  updateBill: (id: string, changes: Partial<Bill>) => request<Bill>('PUT', `/bills/${encodeURIComponent(id)}`, changes),
+  deleteBill: (id: string) => request<void>('DELETE', `/bills/${encodeURIComponent(id)}`),
   updateBillStatus: (id: string, status: OrderStatus) =>
     request<Bill>('PATCH', `/bills/${encodeURIComponent(id)}`, { status }),
+  getExpenses: () => request<Expense[]>('GET', '/expenses'),
+  createExpense: (expense: NewExpense) => request<Expense>('POST', '/expenses', expense),
+  deleteExpense: (id: string) => request<void>('DELETE', `/expenses/${encodeURIComponent(id)}`),
 };
